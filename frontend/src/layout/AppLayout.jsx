@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Logo from '../components/Logo'
+import ThemeToggle from '../components/ThemeToggle'
 
 const NAV = [
   {
@@ -151,6 +152,10 @@ export default function AppLayout() {
             >
               {current.sub} — data center MSC-10
             </div>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
           </div>
         </header>
 

@@ -1,3 +1,5 @@
+import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from 'recharts'
+
 const STATUS_COLOR = {
   healthy: 'var(--status-healthy)',
   watch: 'var(--status-watch)',
@@ -5,62 +7,51 @@ const STATUS_COLOR = {
 }
 
 /**
- * Gauge radiale de health score (0–100).
- * Arc de 270° ouvert vers le bas, valeur en chiffres tabulaires.
+ * Gauge radiale de health score (0–100), Recharts.
+ * Arc de 270° ouvert vers le bas, valeur en chiffres tabulaires au centre.
  */
-export default function HealthGauge({ score, status = 'healthy', size = 180, label }) {
-  const stroke = size * 0.06
-  const r = (size - stroke) / 2
-  const cx = size / 2
-  const cy = size / 2
-  const startAngle = 135
-  const sweep = 270
-  const clamped = Math.max(0, Math.min(100, score))
+export default function HealthGauge({ score, status = 'healthy', size = 190, label }) {
+  const clamped = Math.max(0, Math.min(100, Number(score) || 0))
   const color = STATUS_COLOR[status] ?? STATUS_COLOR.healthy
-
-  const arc = (angleStart, angleSweep) => {
-    const a0 = ((angleStart - 90) * Math.PI) / 180
-    const a1 = ((angleStart + angleSweep - 90) * Math.PI) / 180
-    const x0 = cx + r * Math.cos(a0)
-    const y0 = cy + r * Math.sin(a0)
-    const x1 = cx + r * Math.cos(a1)
-    const y1 = cy + r * Math.sin(a1)
-    const large = angleSweep > 180 ? 1 : 0
-    return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`
-  }
+  const data = [{ name: 'score', value: clamped }]
 
   return (
     <div
-      className="relative inline-flex items-center justify-center"
+      className="relative"
       role="img"
       aria-label={`Health score ${clamped.toFixed(1)} sur 100 — ${status}`}
       style={{ width: size, height: size }}
     >
-      <svg width={size} height={size}>
-        <path
-          d={arc(startAngle, sweep)}
-          fill="none"
-          stroke="var(--surface-2)"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-        />
-        <path
-          d={arc(startAngle, (sweep * clamped) / 100)}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          style={{ transition: `stroke-dashoffset var(--transition-slow)` }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <ResponsiveContainer>
+        <RadialBarChart
+          data={data}
+          startAngle={225}
+          endAngle={-45}
+          innerRadius="78%"
+          outerRadius="100%"
+          barSize={size * 0.075}
+        >
+          <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+          <RadialBar
+            background={{ fill: 'var(--chart-track)' }}
+            dataKey="value"
+            cornerRadius={size}
+            fill={color}
+            angleAxisId={0}
+            isAnimationActive={false}
+          />
+        </RadialBarChart>
+      </ResponsiveContainer>
+
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span
           className="num"
           style={{
-            fontSize: size * 0.21,
+            fontSize: size * 0.2,
             fontWeight: 'var(--fw-semibold)',
             letterSpacing: 'var(--tracking-tight)',
             lineHeight: 1,
+            color: 'var(--text)',
           }}
         >
           {clamped.toFixed(1)}
@@ -69,11 +60,11 @@ export default function HealthGauge({ score, status = 'healthy', size = 180, lab
           <span
             className="num"
             style={{
-              fontSize: 10,
+              fontSize: 9.5,
               letterSpacing: 'var(--tracking-caps)',
               textTransform: 'uppercase',
               color: 'var(--text-muted)',
-              marginTop: 6,
+              marginTop: 7,
             }}
           >
             {label}

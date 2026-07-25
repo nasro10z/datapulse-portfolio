@@ -2,8 +2,18 @@ import { api } from '../api/client'
 import useApi, { ApiState } from '../hooks/useApi'
 import Panel from '../components/Panel'
 import StatusBadge from '../components/StatusBadge'
+import DistributionChart from '../components/DistributionChart'
 
 const TYPE_LABEL = { collective: 'Collective', duration: 'Durée', sequence: 'Séquence' }
+const SEVERITY_LABEL = { alert: 'Alerte', critical: 'Critique' }
+const DIRECTION_LABEL = { high: 'Haut', low: 'Bas' }
+const SEVERITY_COLOR = {
+  alert: 'var(--status-watch)',
+  critical: 'var(--status-critical)',
+}
+
+const toRows = (obj = {}, labels) =>
+  Object.entries(obj).map(([key, value]) => ({ key, label: labels[key] ?? key, value }))
 const DIR_GLYPH = { high: '↑ haut', low: '↓ bas' }
 
 function Stat({ label, value, suffix }) {
@@ -47,6 +57,26 @@ export default function Anomalies() {
               value={stats.data.top_equipment}
               suffix={`× ${stats.data.top_equipment_count}`}
             />
+          </div>
+        )}
+      </ApiState>
+
+      <ApiState loading={stats.loading} error={stats.error}>
+        {stats.data && (
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+            <Panel title="Par type" subtitle="Nature de l’épisode détecté">
+              <DistributionChart data={toRows(stats.data.by_type, TYPE_LABEL)} />
+            </Panel>
+            <Panel title="Par sévérité" subtitle="Alerte / critique">
+              <DistributionChart
+                data={toRows(stats.data.by_severity, SEVERITY_LABEL)}
+                colors={SEVERITY_COLOR}
+                height={100}
+              />
+            </Panel>
+            <Panel title="Par direction" subtitle="Dépassement haut / bas">
+              <DistributionChart data={toRows(stats.data.by_direction, DIRECTION_LABEL)} height={100} />
+            </Panel>
           </div>
         )}
       </ApiState>

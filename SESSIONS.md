@@ -4,6 +4,31 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-25
+
+**Phases couvertes** : consolidation design (hors ROADMAP, demandée avant les phases 5–7) — thème clair/sombre + passage des graphiques sur Recharts.
+
+### Réalisations
+- **Thème clair/sombre complet** : `ThemeContext` (provider + hook), bouton bascule dans la topbar, persistance `localStorage`, suivi de `prefers-color-scheme` tant que l'utilisateur n'a pas choisi, `color-scheme` posé sur `<html>` pour aligner les contrôles natifs (date picker, select, scrollbars).
+- **Tokens light complétés** : accents et statuts re-échelonnés pour le fond blanc (les pas clairs ne tenaient pas 4.5:1 en 10px), + tokens dataviz par thème (`--chart-grid`, `--chart-axis`, `--chart-track`).
+- **Recharts** : `TrendChart` reconstruit (ComposedChart — bande de confiance empilée limitée à la prévision, historique plein / prévision pointillée, légende, tooltip custom, marqueurs de franchissement) ; `HealthGauge` en RadialBarChart ; nouveau `DistributionChart` (barres horizontales) branché sur `by_type` / `by_severity` / `by_direction` déjà exposés par `/api/anomalies/stats`.
+
+### Décisions
+- **Répartitions en teinte unique + libellés d'axe** plutôt qu'une palette catégorielle : blue/violet échouent le seuil de séparation (ΔE 11.1 en vision normale, 1.9 en protanopie). Les couleurs de statut réservées ne servent que pour la sévérité, qui *est* un statut.
+- **Domaine Y explicite** sur le forecast : l'auto-domaine de Recharts repart de 0 à cause de la bande empilée et écrasait la courbe.
+- **`react-router-dom` maintenu en 7.18.x** malgré 2 alertes `npm audit` (GHSA-qwww-vcr4-c8h2, CSRF en mode RSC) : aucune version corrigée n'existe au-dessus, et redescendre en 7.11 expose 14 advisories. L'app est une SPA cliente sans RSC ni server actions — non exposée. À revoir quand un correctif sort.
+- Statuts light vérifiés : healthy #0F7A57 (5.33:1), watch #9A6510 (4.95:1), critical #C1443B (5.05:1) sur blanc.
+
+### Validation
+- `npm run build` OK. Bundle 657 kB (Recharts) — avertissement de taille Vite, code-splitting à envisager en Phase 10.
+- Vérification navigateur des 5 pages **dans les deux thèmes**.
+
+### En suspens
+- Reprise de la ROADMAP en Phase 5 (Anomalies) : histogramme temporel + actions acquitter/résoudre — nécessite d'abord les endpoints d'écriture côté backend (`PATCH /api/anomalies/{id}`, snooze reminders, suppression d'entrée calendrier), absents de la Phase 1.
+- Code-splitting du bundle Recharts.
+
+---
+
 ## Session 2 — 2026-07-25
 
 **Phases couvertes** : Phase 2 (frontend : design system + squelette 5 pages) — terminée.
