@@ -4,6 +4,31 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 2 — 2026-07-25
+
+**Phases couvertes** : Phase 2 (frontend : design system + squelette 5 pages) — terminée.
+
+### Réalisations
+- Premier commit git du repo (baseline Phase 0+1), puis branche `worktree-phase2-frontend-design-system`.
+- Tokens Identity v2 extraits en CSS variables (`src/design-system/tokens.css`) : palette ink/slate, accent bleu #2F6BFF, statuts Healthy/Watch/Critical, typo Space Grotesk + JetBrains Mono (chiffres tabulaires), espacements/rayons/motion. Thème sombre par défaut + surcharges `[data-theme="light"]`.
+- Logo DataPulse (mark "pulse" SVG extrait du fichier Identity v2) en header sidebar + favicon SVG.
+- Composants de base : `HealthGauge` (arc 270°), `StatusBadge` (icône + libellé, jamais couleur seule), `EquipmentCard` (score/tendance/statut), `TrendChart` (courbe + bande de confiance, historique plein / prévision pointillée, franchissements de seuil, crosshair + tooltip), `Panel`.
+- Routing react-router-dom : layout sidebar + topbar fidèle au mockup, 5 pages (Site Health, Forecast, Anomalies, Maintenance, Reminders) toutes branchées sur les 7 endpoints mockés (`src/api/client.js`, hook `useApi` avec états chargement/erreur).
+
+### Décisions
+- Palette viz : mono-série en Phase 2 (viz-1 #2F6BFF validé CVD/contraste sur surface sombre) ; toute future palette multi-séries devra repasser le validateur (les accents clairs échouent la bande de luminosité en mode sombre en usage catégoriel).
+- Le "calendrier" Maintenance est une table chronologique en Phase 2 ; la vue calendrier dominante arrive en Phase 6.
+
+### Validation
+- `npm run build` OK (53 modules).
+- Vérification visuelle navigateur des 5 pages sur les mocks (backend uvicorn + Vite) : rendu conforme au design, tooltip/crosshair et sélecteur d'horizon fonctionnels.
+
+### En suspens
+- Enrichissement par page (Phases 3–7) : histogramme anomalies, actions acquitter/résoudre, snooze reminders, badge compteur nav, vue calendrier.
+- Toggle thème clair (tokens prêts, pas de bouton).
+
+---
+
 ## Session 1 — 2026-07-25
 
 **Phases couvertes** : Phase 0 (scaffold) + Phase 1 (backend mocké) — terminées et validées.

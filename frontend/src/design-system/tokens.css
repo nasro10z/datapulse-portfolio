@@ -1,0 +1,198 @@
+/* ============================================================
+   DataPulse — design tokens (Identity v2)
+   Extraits de "DataPulse - Identity v2 (standalone).html".
+   Thème sombre par défaut (frame applicative du mockup),
+   surcharges clair via [data-theme="light"].
+   ============================================================ */
+
+:root {
+  /* ---- Palette brute ---- */
+  --white: #FFFFFF;
+  --black: #000000;
+
+  --ink-600: #2A3145;
+  --ink-700: #1E2434;
+  --ink-800: #151A28;
+  --ink-850: #0F131F;
+  --ink-900: #0A0D16;
+  --ink-950: #06080F;
+
+  --slate-50:  #F6F8FB;
+  --slate-100: #EDF0F5;
+  --slate-200: #DEE3EC;
+  --slate-300: #C6CDDA;
+  --slate-400: #98A2B4;
+  --slate-500: #697184;
+  --slate-600: #49505F;
+  --slate-700: #333A47;
+
+  --blue-300: #8FB0FF;
+  --blue-400: #5B8CFF;
+  --blue-500: #2F6BFF;
+  --blue-600: #1B4FD9;
+  --blue-700: #1740AE;
+
+  --green-300: #7DF0C6;
+  --green-400: #4BE3A8;
+  --green-500: #1FC08A;
+  --green-600: #149A6E;
+
+  --amber-400: #FFC24B;
+  --amber-500: #F5A524;
+
+  --red-400: #FF6B62;
+  --red-500: #F0483E;
+
+  --violet-500: #8B6CFF;
+  --cyan-500:  #22C7E0;
+
+  /* ---- Sémantique statut / signal ---- */
+  --accent:       var(--blue-500);
+  --accent-hover: var(--blue-400);
+  --accent-press: var(--blue-600);
+  --accent-soft:  rgba(47, 107, 255, .10);
+  --success: var(--green-500);
+  --growth:  var(--green-500);
+  --growth-soft: rgba(31, 192, 138, .12);
+  --warning: var(--amber-500);
+  --danger:  var(--red-500);
+  --info:    var(--blue-500);
+  --focus-ring: rgba(47, 107, 255, .55);
+
+  /* Statuts santé (Healthy / Watch / Critical) */
+  --status-healthy: var(--green-500);
+  --status-healthy-soft: rgba(31, 192, 138, .12);
+  --status-watch: var(--amber-500);
+  --status-watch-soft: rgba(245, 165, 36, .12);
+  --status-critical: var(--red-500);
+  --status-critical-soft: rgba(240, 72, 62, .12);
+
+  /* Dataviz — ordre fixe, ne jamais cycler.
+     Phase 2 : graphiques mono-série (viz-1 validé sur surface sombre).
+     Toute future palette multi-séries doit repasser le validateur CVD. */
+  --viz-1: var(--blue-500);
+  --viz-2: var(--green-500);
+  --viz-3: var(--violet-500);
+  --viz-4: var(--amber-500);
+  --viz-5: var(--cyan-500);
+  --viz-6: var(--red-400);
+
+  /* ---- Typographie ---- */
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+
+  --fs-display-1: 76px;
+  --fs-display-2: 56px;
+  --fs-h1: 40px;
+  --fs-h2: 31px;
+  --fs-h3: 25px;
+  --fs-title: 20px;
+  --fs-body-lg: 18px;
+  --fs-body: 16px;
+  --fs-body-sm: 14px;
+  --fs-caption: 13px;
+  --fs-micro: 11px;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --lh-tight: 1.05;
+  --lh-snug: 1.22;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.65;
+  --lh-none: 1;
+
+  --tracking-tighter: -0.03em;
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.14em;
+
+  /* ---- Espacement ---- */
+  --space-px: 1px;
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* ---- Rayons ---- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-pill: 999px;
+
+  /* ---- Mouvement ---- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 380ms;
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --transition-fast: var(--dur-fast) var(--ease-standard);
+  --transition: var(--dur-base) var(--ease-standard);
+  --transition-slow: var(--dur-slow) var(--ease-out);
+
+  /* ---- Layout ---- */
+  --page-max: 1200px;
+  --content-max: 720px;
+  --gutter: 24px;
+
+  /* ---- Effets ---- */
+  --gradient-signal: linear-gradient(115deg, #2F6BFF 0%, #1FC08A 100%);
+  --gradient-signal-soft: linear-gradient(115deg, rgba(47,107,255,.18) 0%, rgba(31,192,138,.18) 100%);
+  --gradient-ink: radial-gradient(130% 130% at 15% -10%, #171D2E 0%, #0A0D16 58%);
+  --glow-blue: 0 0 0 1px rgba(47,107,255,.35), 0 12px 40px -8px rgba(47,107,255,.45);
+  --glow-green: 0 0 0 1px rgba(31,192,138,.30), 0 12px 40px -8px rgba(31,192,138,.40);
+  --grid-line: rgba(255, 255, 255, .045);
+  --grid-size: 32px;
+
+  /* ---- Sémantique surface / texte — thème sombre (défaut) ---- */
+  --bg: var(--ink-900);
+  --bg-elevated: var(--ink-850);
+  --surface: var(--ink-800);
+  --surface-2: var(--ink-700);
+  --surface-inset: var(--ink-950);
+  --text: var(--slate-50);
+  --text-muted: var(--slate-400);
+  --text-subtle: var(--slate-400);
+  --text-inverse: var(--ink-900);
+  --text-on-accent: #FFFFFF;
+  --border: rgba(255, 255, 255, .09);
+  --border-strong: rgba(255, 255, 255, .16);
+  --hairline: rgba(255, 255, 255, .055);
+}
+
+[data-theme="light"] {
+  --bg: var(--white);
+  --bg-elevated: var(--slate-50);
+  --surface: var(--white);
+  --surface-2: var(--slate-100);
+  --surface-inset: var(--slate-100);
+  --text: var(--ink-900);
+  --text-muted: var(--slate-500);
+  --text-subtle: var(--slate-500);
+  --text-inverse: var(--white);
+  --border: rgba(10, 13, 22, .10);
+  --border-strong: rgba(10, 13, 22, .18);
+  --hairline: rgba(10, 13, 22, .06);
+  --grid-line: rgba(10, 13, 22, .045);
+  --gradient-ink: radial-gradient(120% 120% at 0% 0%, #FFFFFF 0%, #EEF2F8 60%, #E7ECF4 100%);
+}

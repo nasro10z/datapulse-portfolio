@@ -1,12 +1,23 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import AppLayout from './layout/AppLayout'
+import SiteHealth from './pages/SiteHealth'
+import Forecast from './pages/Forecast'
+import Anomalies from './pages/Anomalies'
+import Maintenance from './pages/Maintenance'
+import Reminders from './pages/Reminders'
+
 export default function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0A0D16] text-[#F6F8FB]">
-      <div className="text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">DataPulse</h1>
-        <p className="mt-2 text-sm text-[#98A2B4]">
-          Analytics &amp; maintenance prédictive — MSC-10
-        </p>
-      </div>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<SiteHealth />} />
+          <Route path="/forecast" element={<Forecast />} />
+          <Route path="/anomalies" element={<Anomalies />} />
+          <Route path="/maintenance" element={<Maintenance />} />
+          <Route path="/reminders" element={<Reminders />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
