@@ -23,6 +23,9 @@ export const api = {
     return request(`/api/anomalies${qs ? `?${qs}` : ''}`)
   },
   anomalyStats: () => request('/api/anomalies/stats'),
+  anomalyHistogram: (bucket = 'day') => request(`/api/anomalies/histogram?bucket=${bucket}`),
+  updateAnomalyStatus: (id, status) =>
+    request(`/api/anomalies/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   // Maintenance
   scheduleMaintenance: (payload) =>

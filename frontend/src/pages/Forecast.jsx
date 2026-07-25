@@ -4,9 +4,10 @@ import useApi, { ApiState } from '../hooks/useApi'
 import Panel from '../components/Panel'
 import TrendChart from '../components/TrendChart'
 import EquipmentCard from '../components/EquipmentCard'
+import SegmentedControl from '../components/SegmentedControl'
 
-const HORIZONS = ['24h', '7d', '30d']
 const HORIZON_LABEL = { '24h': '24 h', '7d': '7 jours', '30d': '30 jours' }
+const HORIZONS = Object.entries(HORIZON_LABEL).map(([value, label]) => ({ value, label }))
 
 export default function Forecast() {
   const [horizon, setHorizon] = useState('24h')
@@ -20,27 +21,12 @@ export default function Forecast() {
         title="Global Health Score"
         subtitle={`Historique + prévision — horizon ${HORIZON_LABEL[horizon]}`}
         actions={
-          <div className="flex gap-1" role="group" aria-label="Horizon de prévision">
-            {HORIZONS.map((h) => (
-              <button
-                key={h}
-                onClick={() => setHorizon(h)}
-                className="num"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '5px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${h === horizon ? 'var(--accent)' : 'var(--border)'}`,
-                  background: h === horizon ? 'var(--accent-soft)' : 'transparent',
-                  color: h === horizon ? 'var(--accent-hover)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                }}
-              >
-                {HORIZON_LABEL[h]}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={HORIZONS}
+            value={horizon}
+            onChange={setHorizon}
+            ariaLabel="Horizon de prévision"
+          />
         }
       >
         <ApiState loading={forecast.loading} error={forecast.error}>

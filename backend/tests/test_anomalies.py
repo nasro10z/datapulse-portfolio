@@ -1,5 +1,7 @@
+import pytest
+
 from app.mocks.equipment import MILD_UPPER
-from app.models.anomalies import AnomalyEpisode, AnomalyStats
+from app.models.anomalies import AnomalyEpisode, AnomalyStats, HistogramResponse
 
 
 def test_list_contract(client):
@@ -39,3 +41,43 @@ def test_stats_contract(client):
     assert sum(stats.by_severity.values()) == stats.total
     assert sum(stats.by_type.values()) == stats.total
     assert stats.mtba_hours > 0
+
+
+@pytest.mark.parametrize("bucket", ["day", "week", "month"])
+def test_histogram_contract(client, bucket):
+    r = client.get("/api/anomalies/histogram", params={"bucket": bucket})
+    assert r.status_code == 200
+    hist = HistogramResponse.model_validate(r.json())
+    assert hist.bucket.value == bucket
+    assert hist.bins
+
+    total = len(client.get("/api/anomalies").json())
+    assert sum(b.total for b in hist.bins) == total
+    assert all(b.total == b.alert + b.critical for b in hist.bins)
+    # intervalles contigus et croissants, creux compris
+    starts = [b.period_start for b in hist.bins]
+    assert starts == sorted(starts)
+
+
+def test_histogram_rejects_unknown_bucket(client):
+    assert client.get("/api/anomalies/histogram", params={"bucket": "hour"}).status_code == 422
+
+
+def test_update_status(client):
+    episode = client.get("/api/anomalies").json()[0]
+    original = episode["status"]
+    try:
+        r = client.patch(f"/api/anomalies/{episode['id']}", json={"status": "resolved"})
+        assert r.status_code == 200
+        assert AnomalyEpisode.model_validate(r.json()).status.value == "resolved"
+        # la mise à jour est bien persistée côté API
+        refetched = next(e for e in client.get("/api/anomalies").json() if e["id"] == episode["id"])
+        assert refetched["status"] == "resolved"
+    finally:
+        client.patch(f"/api/anomalies/{episode['id']}", json={"status": original})
+
+
+def test_update_status_errors(client):
+    episode_id = client.get("/api/anomalies").json()[0]["id"]
+    assert client.patch("/api/anomalies/EP-9999", json={"status": "resolved"}).status_code == 404
+    assert client.patch(f"/api/anomalies/{episode_id}", json={"status": "nope"}).status_code == 422

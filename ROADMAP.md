@@ -32,19 +32,19 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [ ] Brancher chaque page sur les endpoints mockés de la Phase 1
 
 ## Phase 3 — Page Site Health Overview
-- [ ] Health score agrégé du site (gauge/radial)
-- [ ] Cards par famille d'équipement (10 STULZ, 2 SOCOMEC, 2 YANAN) avec mini-score, tendance, badge de statut
+- [x] Health score agrégé du site (gauge/radial)
+- [x] Cards par famille d'équipement (10 STULZ, 2 SOCOMEC, 2 YANAN) avec mini-score, tendance, badge de statut
 
 ## Phase 4 — Page Prédiction des pannes (Forecast)
-- [ ] Global Health Score Chart en pleine largeur, sélecteur d'horizon (24h/7j/30j)
-- [ ] Bandes de confiance + alertes de franchissement de seuil prévu
-- [ ] Section sub-scores en dessous, cards secondaires par famille d'équipement
+- [x] Global Health Score Chart en pleine largeur, sélecteur d'horizon (24h/7j/30j)
+- [x] Bandes de confiance + alertes de franchissement de seuil prévu
+- [x] Section sub-scores en dessous, cards secondaires par famille d'équipement
 
 ## Phase 5 — Page Anomaly Detection
-- [ ] Stat cards : total anomalies, taux d'anomalies, MTBA, équipement top contributeur
-- [ ] Histogramme des comptes d'anomalies dans le temps (filtrable jour/semaine/mois)
-- [ ] Répartition par type (collective/durée/séquence) et sévérité (alerte/critique, haut/bas)
-- [ ] Table des épisodes récents avec actions (acquitter/résoudre)
+- [x] Stat cards : total anomalies, taux d'anomalies, MTBA, équipement top contributeur
+- [x] Histogramme des comptes d'anomalies dans le temps (filtrable jour/semaine/mois)
+- [x] Répartition par type (collective/durée/séquence) et sévérité (alerte/critique, haut/bas)
+- [x] Table des épisodes récents avec actions (acquitter/résoudre)
 
 ## Phase 6 — Page Maintenance Préventive
 - [ ] Calendrier en haut (élément dominant)

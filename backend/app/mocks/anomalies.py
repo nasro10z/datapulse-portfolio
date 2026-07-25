@@ -10,6 +10,9 @@ from app.models.anomalies import (
     AnomalyStatus,
     AnomalyType,
     Direction,
+    HistogramBin,
+    HistogramBucket,
+    HistogramResponse,
     Severity,
 )
 
@@ -71,6 +74,61 @@ def get_episodes(
     if date_to:
         out = [e for e in out if e.start <= date_to]
     return out
+
+
+def set_status(episode_id: str, status: AnomalyStatus) -> AnomalyEpisode | None:
+    """Met à jour le statut d'un épisode. Mock : l'état vit en mémoire et
+    repart à zéro au redémarrage — la persistance viendra avec la Phase 8."""
+    for e in EPISODES:
+        if e.id == episode_id:
+            e.status = status
+            return e
+    return None
+
+
+def _floor_to_bucket(dt: datetime, bucket: HistogramBucket) -> datetime:
+    day = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    if bucket == HistogramBucket.day:
+        return day
+    if bucket == HistogramBucket.week:
+        return day - timedelta(days=day.weekday())  # lundi
+    return day.replace(day=1)
+
+
+def _next_bucket(dt: datetime, bucket: HistogramBucket) -> datetime:
+    if bucket == HistogramBucket.day:
+        return dt + timedelta(days=1)
+    if bucket == HistogramBucket.week:
+        return dt + timedelta(days=7)
+    return (dt.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def get_histogram(bucket: HistogramBucket = HistogramBucket.day) -> HistogramResponse:
+    """Comptes d'épisodes par intervalle. Les intervalles sans épisode sont
+    renvoyés à zéro : sans eux, une accalmie ressemblerait à une absence
+    de mesure sur le graphique."""
+    if not EPISODES:
+        return HistogramResponse(bucket=bucket, bins=[])
+
+    counts: dict[datetime, list[int]] = {}
+    for e in EPISODES:
+        key = _floor_to_bucket(e.start, bucket)
+        slot = counts.setdefault(key, [0, 0])
+        slot[0 if e.severity == Severity.alert else 1] += 1
+
+    cursor = min(counts)
+    last = max(counts)
+    bins = []
+    while cursor <= last:
+        alert, critical = counts.get(cursor, [0, 0])
+        bins.append(HistogramBin(
+            period_start=cursor,
+            total=alert + critical,
+            alert=alert,
+            critical=critical,
+        ))
+        cursor = _next_bucket(cursor, bucket)
+    return HistogramResponse(bucket=bucket, bins=bins)
 
 
 def get_stats() -> AnomalyStats:

@@ -4,6 +4,36 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 4 — 2026-07-25
+
+**Phases couvertes** : Phase 5 (Anomaly Detection) — terminée. Phases 3 et 4 cochées rétroactivement (livrées en Session 2).
+
+### Réalisations
+- **Backend — premiers endpoints d'écriture** :
+  - `GET /api/anomalies/histogram?bucket=day|week|month` → intervalles contigus (creux inclus) avec `total` / `alert` / `critical`.
+  - `PATCH /api/anomalies/{id}` `{status}` → met à jour le statut d'un épisode, 404 si inconnu, 422 si statut invalide.
+  - Modèles `HistogramBucket`, `HistogramBin`, `HistogramResponse`, `StatusUpdate`.
+- **Frontend** :
+  - `AnomalyHistogram` (barres empilées par sévérité, sélecteur jour/semaine/mois, tooltip, légende).
+  - Actions **Acquitter / Résoudre** par ligne, désactivées selon le statut courant, avec rechargement et remontée d'erreur.
+  - `SegmentedControl` extrait et réutilisé par le sélecteur d'horizon du Forecast (les deux contrôles étaient dupliqués).
+
+### Décisions
+- **Intervalles vides renvoyés à zéro** par l'histogramme : sans eux, une période calme serait indiscernable d'une absence de mesure.
+- **État des statuts en mémoire** côté mock (repart à zéro au redémarrage du serveur) — la persistance viendra avec le branchement réel en Phase 8.
+- Granularité **semaine** nettement plus lisible que **jour** sur une fenêtre de 60 jours ; `jour` reste la valeur par défaut, conformément à la ROADMAP.
+
+### Validation
+- `pytest tests/` : **20/20 verts** (14 existants + 6 nouveaux : histogramme × 3 granularités, bucket invalide → 422, mise à jour de statut, 404/422).
+- `npm run build` OK.
+- Vérification navigateur dans les deux thèmes : histogramme (jour + semaine), et aller-retour complet d'une action « Résoudre » (PATCH → rechargement → ligne passée à « Résolue », boutons désactivés).
+
+### En suspens
+- Phase 6 (calendrier dominant + édition/suppression) et Phase 7 (snooze/acquittement des rappels, badge compteur) : mêmes prérequis backend — endpoints d'écriture `DELETE`/`PATCH` sur `maintenance/calendar` et `reminders`.
+- Code-splitting du bundle Recharts (662 kB).
+
+---
+
 ## Session 3 — 2026-07-25
 
 **Phases couvertes** : consolidation design (hors ROADMAP, demandée avant les phases 5–7) — thème clair/sombre + passage des graphiques sur Recharts.
