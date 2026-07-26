@@ -1,8 +1,9 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api import anomalies, health, maintenance, reminders
 from app.config import settings
@@ -33,6 +34,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(NotImplementedError)
+async def not_implemented_handler(request: Request, exc: NotImplementedError) -> JSONResponse:
+    # DATA_SOURCE=live avant branchement du pipeline → 501 explicite plutôt qu'un 500 opaque
+    return JSONResponse(status_code=501, content={"detail": str(exc)})
 
 app.include_router(health.router, prefix="/api")
 app.include_router(anomalies.router, prefix="/api")

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app import providers
 from app.db.app_db import get_session
-from app.mocks import anomalies as mock_anomalies
 from app.mocks import reminders as mock_reminders
 from app.models.reminders import Reminder, ReminderCount, SnoozeRequest
 from app.services import anomalies as anomalies_service
@@ -16,7 +16,7 @@ def _active_reminders(session: Session) -> list[Reminder]:
     # calendrier et épisodes (statuts surchargés) sont lus ici et injectés :
     # `mocks/` reste sans dépendance à la base
     pm_entries = maintenance_service.get_calendar(session)
-    episodes = mock_anomalies.get_episodes(anomalies_service.get_status_overrides(session))
+    episodes = providers.anomaly_episodes(anomalies_service.get_status_overrides(session))
     derived = mock_reminders.get_reminders(pm_entries, episodes)
     # retire les rappels acquittés / encore sous snooze
     return reminders_service.apply_actions(derived, reminders_service.get_actions(session))

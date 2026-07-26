@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,6 +8,12 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    # Source des données métier (santé, forecast, anomalies) :
+    #   "mock" — générateurs seedés (Phases 1–7, défaut)
+    #   "live" — pipeline ML validé branché sur PostgreSQL (Phase 8)
+    # Le basculement se fait par cette seule variable ; voir app/providers.py.
+    data_source: Literal["mock", "live"] = "mock"
 
     # Source de données (lecture) — PostgreSQL datacenter_ops
     db_host: str = "localhost"

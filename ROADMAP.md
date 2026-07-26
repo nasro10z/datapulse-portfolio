@@ -59,7 +59,8 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [x] Backend : `POST /api/reminders/{id}/snooze` + `/acknowledge`, `GET /api/reminders/count` (actions persistées, filtrent la liste dérivée)
 
 ## Phase 8 — Intégration du vrai pipeline ML (remplacement progressif des mocks)
-- [ ] Brancher `GET /api/anomalies` sur le pipeline PELT réel (preprocessing → segmentation → détection)
+- [x] **Seam mock ↔ live** : aiguillage par `DATA_SOURCE`, `app/providers.py` (routes découplées de la source), contrat `ml/` (stubs + README), agrégations partagées (`services/anomaly_aggregation.py`), lecture DB documentée (`db/queries.py`), 501 explicite tant que non branché
+- [ ] Brancher `GET /api/anomalies` sur le pipeline PELT réel (preprocessing → segmentation → détection) — **bloqué : code pipeline validé (notebook) + accès DB requis**
 - [ ] Tester `MIN_DURATION_FOR_JUMP=60` min sur l'approche PELT combinée (point ouvert du pipeline)
 - [ ] Charger `scenario_6_label` depuis SCADA
 - [ ] Lancer la validation finale contre le ground-truth Scenario 6

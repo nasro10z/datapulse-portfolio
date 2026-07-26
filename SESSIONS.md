@@ -4,6 +4,31 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Phase 8 (seam ML)
+
+**Phases couvertes** : Phase 8, premier pas — le *seam* d'intégration mock ↔ live. Le branchement du vrai pipeline reste **bloqué** (voir En suspens).
+
+### Constat de blocage
+Revue complète du repo : **aucun code ML, notebook, artefact de modèle ni donnée** présent (seul `app/ml/README.md` en placeholder ; `.env` vide ; pas de `docs/`). Le pipeline validé vit dans le notebook Databricks, hors repo, et l'accès à PostgreSQL `datacenter_ops` n'est pas configuré. Impossible de brancher le pipeline réel ou de lancer la validation Scenario 6 sans ces éléments — et hors de question de fabriquer un faux pipeline « validé » (règle projet + honnêteté sur les perfs). Question posée à l'utilisateur (non répondue) ; défaut retenu : construire le seam, qui ne dépend d'aucun input externe.
+
+### Réalisations (comportement inchangé, mock par défaut)
+- **Aiguillage `DATA_SOURCE` (mock|live)** dans `config.py` ; `app/providers.py` = point unique de choix de source, lu à chaud. Les routes (`health`, `anomalies`, `reminders`) appellent désormais `providers.*`, plus jamais `mocks/` ni `ml/` directement.
+- **Contrat `ml/`** : `ml/anomalies.py` (`raw_episodes`, `window_days`) et `ml/health.py` (`get_overview`, `get_forecast`) — stubs levant `NotImplementedError`, docstrings mappées aux étapes validées (préprocessing/segmentation/hystérésis/seuils Tukey). `ml/README.md` = guide d'intégration.
+- **Agrégations partagées** (`services/anomaly_aggregation.py`) sorties de `mocks/anomalies.py` : surcharge de statut, filtrage, `compute_stats`, `compute_histogram` — identiques quelle que soit la source. `mocks/anomalies.py` réduit à la production d'épisodes bruts (`raw_episodes`, `window_days`).
+- **Lecture DB documentée** (`db/queries.py`) : `read_temp_humidity` / `read_scada_logs` / `read_ups_events` / `read_scenario_6_labels` (pandas via `engine.py`). ⚠️ NON TESTÉ, noms de colonnes à confirmer (pas d'accès DB).
+- **501 explicite** : handler `NotImplementedError → 501` dans `main.py` — `DATA_SOURCE=live` avant branchement renvoie un message clair, pas un 500 opaque. `.env.example` documente `DATA_SOURCE`.
+
+### Validation
+- `pytest tests/` : **29/29 verts** (3 nouveaux : défaut = mock ; `DATA_SOURCE=live` → 501 sur les 6 endpoints ; retour au mock OK). Refactor agrégations vérifié sans régression via les tests d'anomalies existants.
+- **Vérif live** (uvicorn) : mock → 200 ; `DATA_SOURCE=live` → 501 avec message « fournir le pipeline ML validé » sur health + anomalies.
+
+### En suspens (bloquant pour la suite de Phase 8)
+- **Fournir le code du pipeline validé** (notebook/.py) → à adapter dans `ml/` (ne pas réécrire).
+- **Accès DB** `datacenter_ops` (credentials dans `.env`, base joignable depuis la machine) → tester `db/queries.py`, confirmer les schémas.
+- `scenario_6_label` + validation finale ; scoring composite santé ; sémantique forecast °C↔score (à trancher au branchement, cf. note session Phase 5).
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Phases 6 & 7
 
 **Phases couvertes** : Phase 6 (Maintenance) + Phase 7 (Reminders) — terminées.
