@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -45,5 +45,28 @@ class AnomalyStats(BaseModel):
     by_type: dict[AnomalyType, int]
     by_severity: dict[Severity, int]
     by_direction: dict[Direction, int]
+    by_status: dict[AnomalyStatus, int]
     top_equipment: str
     top_equipment_count: int
+
+
+class StatusUpdate(BaseModel):
+    """Corps du PATCH d'acquittement/résolution — action de l'utilisateur."""
+    status: AnomalyStatus
+
+
+class HistogramBucket(str, Enum):
+    day = "day"
+    week = "week"
+    month = "month"
+
+
+class HistogramBin(BaseModel):
+    period_start: date
+    total: int
+    by_severity: dict[Severity, int]
+
+
+class AnomalyHistogram(BaseModel):
+    bucket: HistogramBucket
+    bins: list[HistogramBin]

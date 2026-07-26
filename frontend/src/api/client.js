@@ -19,10 +19,14 @@ export const api = {
 
   // Anomalies
   anomalies: (params = {}) => {
-    const qs = new URLSearchParams(params).toString()
+    const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v))
+    const qs = new URLSearchParams(clean).toString()
     return request(`/api/anomalies${qs ? `?${qs}` : ''}`)
   },
   anomalyStats: () => request('/api/anomalies/stats'),
+  anomalyHistogram: (bucket = 'day') => request(`/api/anomalies/histogram?bucket=${bucket}`),
+  updateAnomalyStatus: (id, status) =>
+    request(`/api/anomalies/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   // Maintenance
   scheduleMaintenance: (payload) =>

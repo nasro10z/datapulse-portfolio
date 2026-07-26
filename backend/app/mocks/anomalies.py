@@ -1,15 +1,22 @@
 """Mocks anomalies — ~30 épisodes sur 60 jours, cohérents avec le pipeline
-validé (27-36 épisodes après hystérésis, seuils Tukey directionnels)."""
+validé (27-36 épisodes après hystérésis, seuils Tukey directionnels).
+
+Les épisodes sont en lecture seule. Le statut effectif = statut simulé, surchargé
+par l'action éventuelle de l'utilisateur (`overrides`, injecté par la route depuis
+la base applicative — voir `services/anomalies.py`)."""
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from app.mocks.equipment import EXTREME_UPPER, MILD_UPPER, STULZ_UNITS, SOCOMEC_UNITS
 from app.models.anomalies import (
     AnomalyEpisode,
+    AnomalyHistogram,
     AnomalyStats,
     AnomalyStatus,
     AnomalyType,
     Direction,
+    HistogramBin,
+    HistogramBucket,
     Severity,
 )
 
@@ -53,15 +60,29 @@ def _build_episodes() -> list[AnomalyEpisode]:
 
 
 EPISODES: list[AnomalyEpisode] = _build_episodes()
+EPISODE_IDS: frozenset[str] = frozenset(e.id for e in EPISODES)
+
+
+def _with_overrides(
+    episodes: list[AnomalyEpisode],
+    overrides: dict[str, AnomalyStatus] | None,
+) -> list[AnomalyEpisode]:
+    if not overrides:
+        return episodes
+    return [
+        e.model_copy(update={"status": overrides[e.id]}) if e.id in overrides else e
+        for e in episodes
+    ]
 
 
 def get_episodes(
+    overrides: dict[str, AnomalyStatus] | None = None,
     equipment: str | None = None,
     severity: Severity | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> list[AnomalyEpisode]:
-    out = EPISODES
+    out = _with_overrides(EPISODES, overrides)
     if equipment:
         out = [e for e in out if e.equipment == equipment]
     if severity:
@@ -73,8 +94,46 @@ def get_episodes(
     return out
 
 
-def get_stats() -> AnomalyStats:
-    eps = EPISODES
+def _bucket_start(d: date, bucket: HistogramBucket) -> date:
+    if bucket == HistogramBucket.day:
+        return d
+    if bucket == HistogramBucket.week:
+        return d - timedelta(days=d.weekday())  # lundi de la semaine
+    return d.replace(day=1)
+
+
+def _next_bucket(d: date, bucket: HistogramBucket) -> date:
+    if bucket == HistogramBucket.day:
+        return d + timedelta(days=1)
+    if bucket == HistogramBucket.week:
+        return d + timedelta(days=7)
+    return (d.replace(day=1) + timedelta(days=32)).replace(day=1)
+
+
+def get_histogram(bucket: HistogramBucket) -> AnomalyHistogram:
+    """Comptes d'anomalies par période (jour/semaine/mois), bacs contigus —
+    les périodes sans anomalie sont incluses avec un compte nul."""
+    counts: dict[date, dict[Severity, int]] = {}
+    for e in EPISODES:
+        start = _bucket_start(e.start.date(), bucket)
+        counts.setdefault(start, {s: 0 for s in Severity})[e.severity] += 1
+
+    bins: list[HistogramBin] = []
+    if counts:
+        cur, last = min(counts), max(counts)
+        while cur <= last:
+            by_sev = counts.get(cur, {s: 0 for s in Severity})
+            bins.append(HistogramBin(
+                period_start=cur,
+                total=sum(by_sev.values()),
+                by_severity=by_sev,
+            ))
+            cur = _next_bucket(cur, bucket)
+    return AnomalyHistogram(bucket=bucket, bins=bins)
+
+
+def get_stats(overrides: dict[str, AnomalyStatus] | None = None) -> AnomalyStats:
+    eps = _with_overrides(EPISODES, overrides)
     by_equipment: dict[str, int] = {}
     for e in eps:
         by_equipment[e.equipment] = by_equipment.get(e.equipment, 0) + 1
@@ -94,6 +153,7 @@ def get_stats() -> AnomalyStats:
         by_type={t: sum(1 for e in eps if e.type == t) for t in AnomalyType},
         by_severity={s: sum(1 for e in eps if e.severity == s) for s in Severity},
         by_direction={d: sum(1 for e in eps if e.direction == d) for d in Direction},
+        by_status={st: sum(1 for e in eps if e.status == st) for st in AnomalyStatus},
         top_equipment=top_equipment,
         top_equipment_count=by_equipment[top_equipment],
     )

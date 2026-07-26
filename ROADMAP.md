@@ -40,11 +40,12 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [ ] Bandes de confiance + alertes de franchissement de seuil prévu
 - [ ] Section sub-scores en dessous, cards secondaires par famille d'équipement
 
-## Phase 5 — Page Anomaly Detection
-- [ ] Stat cards : total anomalies, taux d'anomalies, MTBA, équipement top contributeur
-- [ ] Histogramme des comptes d'anomalies dans le temps (filtrable jour/semaine/mois)
-- [ ] Répartition par type (collective/durée/séquence) et sévérité (alerte/critique, haut/bas)
-- [ ] Table des épisodes récents avec actions (acquitter/résoudre)
+## Phase 5 — Page Anomaly Detection ✅
+- [x] Stat cards : total anomalies, taux d'anomalies, MTBA, équipement top contributeur
+- [x] Histogramme des comptes d'anomalies dans le temps (filtrable jour/semaine/mois)
+- [x] Répartition par type (collective/durée/séquence) et sévérité (alerte/critique, haut/bas) — + direction + statut
+- [x] Table des épisodes récents avec actions (acquitter/résoudre) — + filtres équipement/sévérité
+- [x] Backend : `PATCH /api/anomalies/{id}` (action persistée) + `GET /api/anomalies/histogram?bucket=`
 
 ## Phase 6 — Page Maintenance Préventive
 - [ ] Calendrier en haut (élément dominant)

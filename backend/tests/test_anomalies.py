@@ -1,5 +1,5 @@
 from app.mocks.equipment import MILD_UPPER
-from app.models.anomalies import AnomalyEpisode, AnomalyStats
+from app.models.anomalies import AnomalyEpisode, AnomalyHistogram, AnomalyStats
 
 
 def test_list_contract(client):
@@ -38,4 +38,52 @@ def test_stats_contract(client):
     assert stats.total == len(total)
     assert sum(stats.by_severity.values()) == stats.total
     assert sum(stats.by_type.values()) == stats.total
+    assert sum(stats.by_status.values()) == stats.total
     assert stats.mtba_hours > 0
+
+
+def test_histogram_buckets(client):
+    for bucket in ("day", "week", "month"):
+        r = client.get("/api/anomalies/histogram", params={"bucket": bucket})
+        assert r.status_code == 200
+        hist = AnomalyHistogram.model_validate(r.json())
+        assert hist.bucket.value == bucket
+        assert hist.bins
+        # les bacs sont contigus et croissants
+        starts = [b.period_start for b in hist.bins]
+        assert starts == sorted(starts)
+        # le total des comptes = nombre d'épisodes (rien perdu, rien dupliqué)
+        assert sum(b.total for b in hist.bins) == len(client.get("/api/anomalies").json())
+    # granularité plus fine ⇒ au moins autant de bacs
+    day = AnomalyHistogram.model_validate(client.get("/api/anomalies/histogram", params={"bucket": "day"}).json())
+    month = AnomalyHistogram.model_validate(client.get("/api/anomalies/histogram", params={"bucket": "month"}).json())
+    assert len(day.bins) >= len(month.bins)
+
+
+def test_acknowledge_persists_and_reflects_in_status(client):
+    ep = client.get("/api/anomalies").json()[0]
+    r = client.patch(f"/api/anomalies/{ep['id']}", json={"status": "acknowledged"})
+    assert r.status_code == 200
+    assert r.json()["status"] == "acknowledged"
+    # relu depuis la base au fetch suivant
+    listed = client.get("/api/anomalies").json()
+    assert next(e for e in listed if e["id"] == ep["id"])["status"] == "acknowledged"
+    # visible dans la répartition par statut
+    stats = client.get("/api/anomalies/stats").json()
+    assert stats["by_status"]["acknowledged"] >= 1
+
+
+def test_patch_unknown_episode_404(client):
+    r = client.patch("/api/anomalies/EP-9999", json={"status": "resolved"})
+    assert r.status_code == 404
+
+
+def test_acknowledging_open_anomaly_clears_its_reminder(client):
+    # un épisode encore "open" (donc source d'un rappel non acquitté)
+    open_ep = next(e for e in client.get("/api/anomalies").json() if e["status"] == "open")
+    rid = f"RM-AN-{open_ep['id']}"
+    before = {r["id"] for r in client.get("/api/reminders").json()}
+    assert rid in before
+    client.patch(f"/api/anomalies/{open_ep['id']}", json={"status": "acknowledged"})
+    after = {r["id"] for r in client.get("/api/reminders").json()}
+    assert rid not in after

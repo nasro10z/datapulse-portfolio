@@ -1,0 +1,62 @@
+"""Plannings de maintenance préventive : calcul de la prochaine PM + persistance.
+
+Le calendrier de PM est saisi par l'utilisateur : ce ne sont pas des données
+mockées et le pipeline ML ne les remplacera pas en Phase 8. Ce module vit donc
+dans `services/` et non dans `mocks/` (seul le jeu de démonstration initial
+reste dans `mocks/maintenance.py`).
+"""
+from datetime import date, timedelta
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db.tables import PMSchedule
+from app.models.maintenance import CalendarEntry, PeriodUnit, ScheduleRequest
+
+
+def add_months(d: date, months: int) -> date:
+    month_index = d.month - 1 + months
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    # borne au dernier jour du mois cible (ex. 31 janv + 1 mois → 28/29 févr)
+    last_day = (date(year + month // 12, month % 12 + 1, 1) - timedelta(days=1)).day
+    return date(year, month, min(d.day, last_day))
+
+
+def compute_next_pm(last_pm: date, value: int, unit: PeriodUnit) -> date:
+    if unit == PeriodUnit.days:
+        return last_pm + timedelta(days=value)
+    if unit == PeriodUnit.weeks:
+        return last_pm + timedelta(weeks=value)
+    return add_months(last_pm, value)
+
+
+def _to_entry(row: PMSchedule) -> CalendarEntry:
+    return CalendarEntry(
+        id=f"PM-{row.id:04d}",
+        equipment=row.equipment,
+        last_pm_date=row.last_pm_date,
+        period_value=row.period_value,
+        period_unit=PeriodUnit(row.period_unit),
+        next_pm_date=row.next_pm_date,
+        # recalculé à la lecture pour rester juste au fil des jours
+        days_remaining=(row.next_pm_date - date.today()).days,
+    )
+
+
+def schedule(session: Session, req: ScheduleRequest) -> CalendarEntry:
+    row = PMSchedule(
+        equipment=req.equipment,
+        last_pm_date=req.last_pm_date,
+        period_value=req.period_value,
+        period_unit=req.period_unit.value,
+        next_pm_date=compute_next_pm(req.last_pm_date, req.period_value, req.period_unit),
+    )
+    session.add(row)
+    session.commit()
+    return _to_entry(row)
+
+
+def get_calendar(session: Session) -> list[CalendarEntry]:
+    rows = session.scalars(select(PMSchedule).order_by(PMSchedule.next_pm_date)).all()
+    return [_to_entry(r) for r in rows]

@@ -3,18 +3,23 @@ anomalies non acquittées. Couche d'aide à la décision — les rappels
 informent, ils ne déclenchent aucune action."""
 from datetime import datetime, time, timedelta, timezone
 
-from app.mocks import anomalies as mock_anomalies
-from app.mocks import maintenance as mock_maintenance
 from app.mocks.equipment import MILD_UPPER
-from app.models.anomalies import AnomalyStatus, Severity
+from app.models.anomalies import AnomalyEpisode, AnomalyStatus, Severity
+from app.models.maintenance import CalendarEntry
 from app.models.reminders import Reminder, ReminderKind, ReminderSeverity
 
 
-def get_reminders() -> list[Reminder]:
+def get_reminders(
+    pm_entries: list[CalendarEntry],
+    episodes: list[AnomalyEpisode],
+) -> list[Reminder]:
+    """`pm_entries` et `episodes` sont injectés par la route : ce module dérive
+    des rappels, il n'accède pas à la base. `episodes` porte déjà les statuts
+    surchargés — un épisode acquitté ne génère donc plus de rappel."""
     now = datetime.now(timezone.utc)
     reminders: list[Reminder] = []
 
-    for entry in mock_maintenance.get_calendar():
+    for entry in pm_entries:
         if entry.days_remaining <= 14:
             overdue = entry.days_remaining < 0
             reminders.append(Reminder(
@@ -30,7 +35,7 @@ def get_reminders() -> list[Reminder]:
                 severity=ReminderSeverity.warning if overdue else ReminderSeverity.info,
             ))
 
-    for ep in mock_anomalies.get_episodes():
+    for ep in episodes:
         if ep.status == AnomalyStatus.open:
             reminders.append(Reminder(
                 id=f"RM-AN-{ep.id}",

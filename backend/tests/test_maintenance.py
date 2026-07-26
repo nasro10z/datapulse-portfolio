@@ -1,7 +1,11 @@
 from datetime import date
 
-from app.mocks.maintenance import add_months
+from sqlalchemy import URL, create_engine
+from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.models.maintenance import CalendarEntry
+from app.services.maintenance import add_months, get_calendar
 
 
 def test_schedule_months_calculation(client):
@@ -45,6 +49,24 @@ def test_scheduled_entry_appears_in_calendar(client):
     assert any(e.id == entry_id for e in entries)
     dates = [e.next_pm_date for e in entries]
     assert dates == sorted(dates)
+
+
+def test_schedule_persists_on_disk(client):
+    """Une PM planifiée doit survivre au redémarrage du process — ce que le
+    store en mémoire ne garantissait pas."""
+    r = client.post("/api/maintenance/schedule", json={
+        "equipment": "STULZ-05", "last_pm_date": "2026-06-10",
+        "period_value": 90, "period_unit": "days",
+    })
+    entry_id = r.json()["id"]
+
+    # moteur neuf sur le même fichier : prouve l'écriture disque, pas un cache de session
+    engine = create_engine(URL.create(drivername="sqlite", database=str(settings.app_db_path)))
+    try:
+        with Session(engine) as session:
+            assert any(e.id == entry_id for e in get_calendar(session))
+    finally:
+        engine.dispose()
 
 
 def test_invalid_period_rejected(client):

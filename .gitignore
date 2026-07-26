@@ -7,6 +7,9 @@ __pycache__/
 # Env / credentials — never commit
 .env
 
+# État applicatif local (SQLite) — recréé au démarrage
+backend/data/
+
 # Node
 node_modules/
 dist/
