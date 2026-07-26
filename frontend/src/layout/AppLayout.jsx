@@ -3,6 +3,26 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Logo from '../components/Logo'
 import { api } from '../api/client'
 import useApi from '../hooks/useApi'
+import useTheme from '../hooks/useTheme'
+
+// Contrôles du bas de sidebar (indicateur de site + bascule de thème) : même gabarit
+const footerControl = {
+  display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+  padding: '10px 11px', border: '1px solid var(--border)', borderRadius: 12,
+  background: 'var(--surface)', color: 'var(--text)', textAlign: 'left',
+}
+
+const SunIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </svg>
+)
+const MoonIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
+  </svg>
+)
 
 const NAV = [
   {
@@ -55,6 +75,7 @@ const TITLES = Object.fromEntries(NAV.map((n) => [n.to, n]))
 export default function AppLayout() {
   const { pathname } = useLocation()
   const current = TITLES[pathname] ?? NAV[0]
+  const { isLight, toggle: toggleTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches,
@@ -170,11 +191,37 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div
-          className="num mt-auto"
-          style={{ fontSize: 9.5, color: 'var(--text-muted)', padding: '10px', letterSpacing: 'var(--tracking-wide)' }}
-        >
-          MSC-10 · UC3
+        <div className="mt-auto flex flex-col gap-2" style={{ paddingTop: 12 }}>
+          {/* Indicateur de site (sélection de site — un seul site pour l'instant) */}
+          <div style={footerControl}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--status-healthy)', flex: 'none' }} aria-hidden="true" />
+            <span style={{ lineHeight: 1.25, overflow: 'hidden' }}>
+              <span className="block" style={{ fontSize: 12, fontWeight: 500 }}>MSC-10</span>
+              <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 'var(--tracking-wide)' }}>UC3 · Site actif</span>
+            </span>
+          </div>
+
+          {/* Bascule thème clair / sombre — même gabarit que le bouton de site */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            style={{ ...footerControl, cursor: 'pointer' }}
+            aria-label={isLight ? 'Basculer en mode sombre' : 'Basculer en mode clair'}
+            aria-pressed={isLight}
+            title="Changer de thème"
+          >
+            <span style={{ display: 'flex', flex: 'none', color: 'var(--accent)' }}>
+              {isLight ? <MoonIcon /> : <SunIcon />}
+            </span>
+            <span style={{ lineHeight: 1.25 }}>
+              <span className="block" style={{ fontSize: 12, fontWeight: 500 }}>
+                {isLight ? 'Mode clair' : 'Mode sombre'}
+              </span>
+              <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 'var(--tracking-wide)' }}>
+                Thème
+              </span>
+            </span>
+          </button>
         </div>
       </aside>
 

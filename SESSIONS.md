@@ -4,6 +4,22 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Bascule de thème clair/sombre
+
+**Demande** : bouton mode clair/sombre dans la sidebar, même gabarit que le bouton de sélection de site (bas-gauche).
+
+### Réalisations
+- `hooks/useTheme.js` : état thème (défaut sombre), applique `data-theme` sur `<html>` et persiste dans `localStorage` (`datapulse-theme`). Effet de bord dans un `useEffect` (pas dans l'updater) — **StrictMode double-invoque les updaters**, ce qui annulait la bascule dans une première version.
+- `index.html` : script inline qui pose `data-theme` depuis localStorage **avant** le rendu React (anti-flash).
+- `AppLayout` : bas de sidebar refait en deux contrôles au même gabarit (bordure, rayon 12, `var(--surface)`) — indicateur de site « MSC-10 / UC3 · Site actif » (pastille pulse) + bouton bascule thème (icône soleil/lune, label « Mode sombre/clair », `aria-label`/`aria-pressed`). Reprend le pattern du site-switcher du mockup Identity v2.
+- Tokens `[data-theme="light"]` déjà présents (Phase 2) — désormais atteignables.
+
+### Validation
+- Navigateur : bascule OK (fond sombre↔blanc, texte, label), persistée au reload sans flash. Contraste **thème clair AA** : texte 19:1, muted 4.89:1, accent 4.5:1.
+- `npm test` **9/9** (+3 tests `useTheme` : défaut sombre, bascule+persistance, reprise du choix). `npm run build` OK.
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Phase 10 (polish)
 
 **Phases couvertes** : Phase 10 — parcours de test, responsive mobile, accessibilité. Livrable DSIP4 laissé de côté (bloqué par la validation Scenario 6, Phase 8).
