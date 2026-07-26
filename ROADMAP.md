@@ -47,14 +47,16 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [x] Table des épisodes récents avec actions (acquitter/résoudre) — + filtres équipement/sévérité
 - [x] Backend : `PATCH /api/anomalies/{id}` (action persistée) + `GET /api/anomalies/histogram?bucket=`
 
-## Phase 6 — Page Maintenance Préventive
-- [ ] Calendrier en haut (élément dominant)
-- [ ] Formulaire compact : équipement / dernière PM / période → calcul automatique
-- [ ] Liste "Planning calculé" avec édition/suppression
+## Phase 6 — Page Maintenance Préventive ✅
+- [x] Calendrier en haut (élément dominant) — vue mensuelle navigable, marqueurs PM colorés par urgence
+- [x] Formulaire compact : équipement / dernière PM / période → calcul automatique (sert aussi à l'édition)
+- [x] Liste "Planning calculé" avec édition/suppression
+- [x] Backend : `PATCH` / `DELETE /api/maintenance/schedule/{id}`
 
-## Phase 7 — Page Reminders
-- [ ] Liste des rappels actifs avec actions snooze/acquitter
-- [ ] Badge de compteur dans la nav
+## Phase 7 — Page Reminders ✅
+- [x] Liste des rappels actifs avec actions snooze/acquitter
+- [x] Badge de compteur dans la nav
+- [x] Backend : `POST /api/reminders/{id}/snooze` + `/acknowledge`, `GET /api/reminders/count` (actions persistées, filtrent la liste dérivée)
 
 ## Phase 8 — Intégration du vrai pipeline ML (remplacement progressif des mocks)
 - [ ] Brancher `GET /api/anomalies` sur le pipeline PELT réel (preprocessing → segmentation → détection)

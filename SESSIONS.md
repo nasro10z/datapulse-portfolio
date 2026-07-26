@@ -4,6 +4,27 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Phases 6 & 7
+
+**Phases couvertes** : Phase 6 (Maintenance) + Phase 7 (Reminders) — terminées.
+
+### Réalisations
+- **Phase 6 — Backend** : `PATCH /api/maintenance/schedule/{id}` (remplace les champs + recalcule la prochaine PM, 404 si inconnu) et `DELETE /api/maintenance/schedule/{id}` (204, 404 si inconnu) dans `services/maintenance.py`.
+- **Phase 6 — Frontend** : `components/PMCalendar.jsx` — calendrier mensuel navigable (‹ / Aujourd'hui / ›), marqueurs PM par jour colorés par urgence (retard→critique, ≤7j→watch, sinon accent), élément dominant en haut de page. Liste « Planning calculé » enrichie de boutons Éditer (recharge la PM dans le formulaire, qui bascule en mode mise à jour) / Supprimer. Formulaire compact conservé, sert création + édition.
+- **Phase 7 — Backend** : rappels dérivés inchangés, mais action utilisateur persistée (`db/tables.ReminderAction`, `services/reminders.py`) : `POST /{id}/acknowledge` (masque), `POST /{id}/snooze` (masque jusqu'à `snoozed_until`, `hours` borné 0<h≤720), `GET /count`. `apply_actions` filtre la liste dérivée à la lecture. Fix : SQLite ne conserve pas le fuseau → `snoozed_until` relu réinterprété en UTC.
+- **Phase 7 — Frontend** : page Reminders avec Acquitter + Reporter (1 h / 1 j / 7 j) par carte ; badge compteur dans la nav (`AppLayout`, `GET /count` rechargé à chaque changement de page). `api/client.js` : `updateMaintenance`, `deleteMaintenance`, `remindersCount`, `acknowledgeReminder`, `snoozeReminder` ; `request()` gère 204 (corps vide).
+
+### Validation
+- `pytest tests/` : **26/26 verts** (7 nouveaux : update recalcule/persiste, delete retire, 404 update+delete, count=liste, acquittement retire + compteur, snooze masque, bornes `hours` 422). Fixture d'isolation étendue à `ReminderAction`.
+- **Vérif backend live** (uvicorn) : PM créée→éditée (next_pm recalculé)→supprimée (204), 404 sur inconnu ; reminders count 4→3 après acquittement, snooze masque le rappel.
+- **Vérif navigateur** (Vite + backend) — Node retrouvé à `C:\Program Files\nodejs` (absent du PATH shell, pas de la machine ; `.claude/launch.json` ajouté). `npm run build` OK (55 modules). Calendrier : navigation Août affiche GEN-01/STULZ-03/UPS-01 aux bonnes dates ; Reminders : acquittement retire la carte, badge nav passe à 3 ; page Anomalies (Phase 5) rendue et conforme (histogramme, répartitions, filtres, actions).
+
+### En suspens
+- Badge nav rechargé au changement de page seulement : après un acquittement *sur* la page Reminders, le badge reste à jour dès la navigation suivante (pas de rafraîchissement live intra-page — acceptable, amélioration possible via contexte partagé ou polling).
+- Reste : Phase 8 (intégration pipeline ML réel + validation Scenario 6), Phase 9 (UPS/generators), Phase 10 (e2e, responsive, a11y, livrable). Le pattern « action utilisateur persistée surchargeant/filtrant une donnée dérivée » est désormais établi sur maintenance, anomalies et reminders.
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Phase 5 Anomaly Detection
 
 **Phases couvertes** : Phase 5 — terminée (page enrichie + endpoints d'écriture/agrégation).

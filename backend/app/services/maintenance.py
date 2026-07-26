@@ -60,3 +60,38 @@ def schedule(session: Session, req: ScheduleRequest) -> CalendarEntry:
 def get_calendar(session: Session) -> list[CalendarEntry]:
     rows = session.scalars(select(PMSchedule).order_by(PMSchedule.next_pm_date)).all()
     return [_to_entry(r) for r in rows]
+
+
+def _parse_id(pm_id: str) -> int | None:
+    """`PM-0004` → 4. None si le format est invalide."""
+    prefix, _, num = pm_id.partition("-")
+    if prefix != "PM" or not num.isdigit():
+        return None
+    return int(num)
+
+
+def update(session: Session, pm_id: str, req: ScheduleRequest) -> CalendarEntry | None:
+    """Remplace les champs d'une PM et recalcule la prochaine échéance.
+    None si l'entrée n'existe pas (→ 404 côté route)."""
+    row_id = _parse_id(pm_id)
+    row = session.get(PMSchedule, row_id) if row_id is not None else None
+    if row is None:
+        return None
+    row.equipment = req.equipment
+    row.last_pm_date = req.last_pm_date
+    row.period_value = req.period_value
+    row.period_unit = req.period_unit.value
+    row.next_pm_date = compute_next_pm(req.last_pm_date, req.period_value, req.period_unit)
+    session.commit()
+    return _to_entry(row)
+
+
+def delete(session: Session, pm_id: str) -> bool:
+    """True si une entrée a été supprimée, False si elle n'existait pas."""
+    row_id = _parse_id(pm_id)
+    row = session.get(PMSchedule, row_id) if row_id is not None else None
+    if row is None:
+        return False
+    session.delete(row)
+    session.commit()
+    return True

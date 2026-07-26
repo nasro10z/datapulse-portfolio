@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Logo from '../components/Logo'
+import { api } from '../api/client'
+import useApi from '../hooks/useApi'
 
 const NAV = [
   {
@@ -52,6 +54,9 @@ const TITLES = Object.fromEntries(NAV.map((n) => [n.to, n]))
 export default function AppLayout() {
   const { pathname } = useLocation()
   const current = TITLES[pathname] ?? NAV[0]
+  // rechargé à chaque changement de page (couvre les acquittements/snooze depuis la page Reminders)
+  const reminders = useApi(api.remindersCount, [pathname])
+  const reminderCount = reminders.data?.count ?? 0
 
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg)' }}>
@@ -116,6 +121,21 @@ export default function AppLayout() {
                       {item.sub}
                     </span>
                   </span>
+                  {item.to === '/reminders' && reminderCount > 0 && (
+                    <span
+                      className="num"
+                      aria-label={`${reminderCount} rappel${reminderCount > 1 ? 's' : ''} actif${reminderCount > 1 ? 's' : ''}`}
+                      style={{
+                        marginLeft: 'auto', flex: 'none',
+                        minWidth: 18, height: 18, padding: '0 5px',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, fontWeight: 700, borderRadius: 'var(--radius-pill)',
+                        background: 'var(--status-watch)', color: 'var(--text-inverse)',
+                      }}
+                    >
+                      {reminderCount}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>

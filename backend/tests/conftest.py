@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import delete  # noqa: E402
 
 from app.db.app_db import get_app_engine, get_sessionmaker  # noqa: E402
-from app.db.tables import AnomalyAction  # noqa: E402
+from app.db.tables import AnomalyAction, ReminderAction  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -31,10 +31,12 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def reset_anomaly_actions():
-    """La base est partagée sur la session : on efface les acquittements après
-    chaque test pour qu'un test de mutation ne pollue pas les suivants."""
+def reset_user_actions():
+    """La base est partagée sur la session : on efface les actions utilisateur
+    (acquittements d'anomalies, snooze/acquittements de rappels) après chaque
+    test pour qu'un test de mutation ne pollue pas les suivants."""
     yield
     with get_sessionmaker()() as s:
         s.execute(delete(AnomalyAction))
+        s.execute(delete(ReminderAction))
         s.commit()

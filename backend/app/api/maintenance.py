@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.app_db import get_session
@@ -19,3 +19,21 @@ def schedule_pm(
 @router.get("/calendar", response_model=list[CalendarEntry])
 def get_calendar(session: Session = Depends(get_session)) -> list[CalendarEntry]:
     return maintenance_service.get_calendar(session)
+
+
+@router.patch("/schedule/{pm_id}", response_model=CalendarEntry)
+def update_pm(
+    pm_id: str,
+    req: ScheduleRequest,
+    session: Session = Depends(get_session),
+) -> CalendarEntry:
+    entry = maintenance_service.update(session, pm_id, req)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Planning {pm_id} introuvable")
+    return entry
+
+
+@router.delete("/schedule/{pm_id}", status_code=204)
+def delete_pm(pm_id: str, session: Session = Depends(get_session)) -> None:
+    if not maintenance_service.delete(session, pm_id):
+        raise HTTPException(status_code=404, detail=f"Planning {pm_id} introuvable")

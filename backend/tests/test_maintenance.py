@@ -75,3 +75,37 @@ def test_invalid_period_rejected(client):
         "period_value": 0, "period_unit": "days",
     })
     assert r.status_code == 422
+
+
+def test_update_recomputes_next_pm(client):
+    created = client.post("/api/maintenance/schedule", json={
+        "equipment": "STULZ-05", "last_pm_date": "2026-07-01",
+        "period_value": 1, "period_unit": "months",
+    }).json()
+    r = client.patch(f"/api/maintenance/schedule/{created['id']}", json={
+        "equipment": "STULZ-05", "last_pm_date": "2026-07-01",
+        "period_value": 2, "period_unit": "months",
+    })
+    assert r.status_code == 200
+    assert r.json()["next_pm_date"] == "2026-09-01"  # recalculé depuis la nouvelle période
+    # persisté : relu depuis le calendrier
+    entry = next(e for e in client.get("/api/maintenance/calendar").json() if e["id"] == created["id"])
+    assert entry["next_pm_date"] == "2026-09-01"
+
+
+def test_delete_removes_entry(client):
+    created = client.post("/api/maintenance/schedule", json={
+        "equipment": "STULZ-06", "last_pm_date": "2026-07-01",
+        "period_value": 3, "period_unit": "months",
+    }).json()
+    assert client.delete(f"/api/maintenance/schedule/{created['id']}").status_code == 204
+    ids = [e["id"] for e in client.get("/api/maintenance/calendar").json()]
+    assert created["id"] not in ids
+
+
+def test_update_delete_unknown_404(client):
+    assert client.patch("/api/maintenance/schedule/PM-9999", json={
+        "equipment": "X", "last_pm_date": "2026-07-01",
+        "period_value": 1, "period_unit": "days",
+    }).status_code == 404
+    assert client.delete("/api/maintenance/schedule/PM-9999").status_code == 404

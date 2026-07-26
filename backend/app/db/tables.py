@@ -45,3 +45,22 @@ class AnomalyAction(Base):
     episode_id: Mapped[str] = mapped_column(String(16), primary_key=True)
     status: Mapped[str] = mapped_column(String(16))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReminderAction(Base):
+    """Snooze / acquittement d'un rappel par l'utilisateur.
+
+    Les rappels sont *dérivés* (PM à venir, seuils, anomalies non acquittées) et
+    non stockés ; on ne persiste ici que l'action de l'utilisateur, qui vient
+    filtrer la liste dérivée à la lecture. Clé = id du rappel (`RM-AN-EP-0003`,
+    `RM-PM-PM-0004`, `RM-TH-0001`), stable car adossé à un id sous-jacent stable.
+    Un rappel acquitté est masqué ; un rappel snoozé est masqué jusqu'à
+    `snoozed_until`.
+    """
+
+    __tablename__ = "reminder_actions"
+
+    reminder_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    acknowledged: Mapped[bool] = mapped_column(default=False)
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

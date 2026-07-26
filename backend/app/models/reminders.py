@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ReminderKind(str, Enum):
@@ -23,3 +23,11 @@ class Reminder(BaseModel):
     message: str
     due_at: datetime
     severity: ReminderSeverity
+
+
+class SnoozeRequest(BaseModel):
+    hours: float = Field(gt=0, le=720)  # borné à 30 jours
+
+
+class ReminderCount(BaseModel):
+    count: int

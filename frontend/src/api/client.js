@@ -9,6 +9,8 @@ async function request(path, options = {}) {
     const body = await res.text().catch(() => '')
     throw new Error(`API ${res.status} ${res.statusText} — ${path}${body ? ` : ${body}` : ''}`)
   }
+  // 204 No Content (DELETE, snooze/acknowledge) : pas de corps à parser
+  if (res.status === 204) return null
   return res.json()
 }
 
@@ -31,8 +33,17 @@ export const api = {
   // Maintenance
   scheduleMaintenance: (payload) =>
     request('/api/maintenance/schedule', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMaintenance: (id, payload) =>
+    request(`/api/maintenance/schedule/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteMaintenance: (id) =>
+    request(`/api/maintenance/schedule/${id}`, { method: 'DELETE' }),
   maintenanceCalendar: () => request('/api/maintenance/calendar'),
 
   // Reminders
   reminders: () => request('/api/reminders'),
+  remindersCount: () => request('/api/reminders/count'),
+  acknowledgeReminder: (id) =>
+    request(`/api/reminders/${id}/acknowledge`, { method: 'POST' }),
+  snoozeReminder: (id, hours) =>
+    request(`/api/reminders/${id}/snooze`, { method: 'POST', body: JSON.stringify({ hours }) }),
 }
