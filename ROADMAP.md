@@ -71,10 +71,10 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [ ] Exploiter la comparaison inter-unités des 10 STULZ identiques (méthode à haut potentiel identifiée)
 
 ## Phase 10 — Polish & livrable
-- [ ] Tests end-to-end sur les parcours critiques (planifier une PM, consulter une anomalie, lire le forecast)
-- [ ] Responsive mobile sur les 5 pages
-- [ ] Vérification accessibilité (focus clavier, contrastes)
-- [ ] Rédaction du livrable DSIP4 (attendre les résultats de validation Scenario 6 avant toute affirmation quantitative de performance)
+- [x] Tests des parcours critiques (planifier une PM, consulter/acquitter une anomalie, lire le forecast) — Vitest + Testing Library (6 tests, API mockée). NB : niveau intégration ; e2e navigateur complet (Playwright) laissé en option.
+- [x] Responsive mobile sur les 5 pages — sidebar en tiroir sous 768px (hamburger + backdrop + Échap), 0 débordement horizontal vérifié à 375px
+- [x] Vérification accessibilité — structure de titres (h1→h2), `:focus-visible`, noms accessibles sur tous les interactifs, aria sur tiroir/badge, contrastes AA (texte 18:1, muted ~7:1, statuts ≥4.7:1)
+- [ ] Rédaction du livrable DSIP4 — **en attente de la validation Scenario 6** (pas d'affirmation quantitative de performance avant ; cf. Phase 8 bloquée)
 
 ---
 

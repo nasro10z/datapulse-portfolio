@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Logo from '../components/Logo'
 import { api } from '../api/client'
@@ -54,21 +55,47 @@ const TITLES = Object.fromEntries(NAV.map((n) => [n.to, n]))
 export default function AppLayout() {
   const { pathname } = useLocation()
   const current = TITLES[pathname] ?? NAV[0]
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && setMenuOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   // rechargé à chaque changement de page (couvre les acquittements/snooze depuis la page Reminders)
   const reminders = useApi(api.remindersCount, [pathname])
   const reminderCount = reminders.data?.count ?? 0
 
+  // en mobile, le tiroir se translate ; en desktop, la sidebar est en flux normal
+  const sidebarTransform = isMobile ? (menuOpen ? 'translateX(0)' : 'translateX(-100%)') : undefined
+
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg)' }}>
+      {/* ---- Backdrop (mobile, quand le tiroir est ouvert) ---- */}
+      <div
+        className={`app-backdrop ${menuOpen ? 'open' : ''}`}
+        onClick={() => setMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* ---- Sidebar ---- */}
       <aside
-        className="flex flex-col"
+        className={`app-sidebar flex flex-col ${menuOpen ? 'open' : ''}`}
         style={{
           width: 232,
           flex: 'none',
           borderRight: '1px solid var(--border)',
           background: 'var(--bg-elevated)',
           padding: '18px 14px',
+          transform: sidebarTransform,
         }}
       >
         <div style={{ padding: '4px 8px 18px' }}>
@@ -93,6 +120,7 @@ export default function AppLayout() {
               key={item.to}
               to={item.to}
               end={item.to === '/'}
+              onClick={() => setMenuOpen(false)}
               className="flex items-center gap-3"
               style={({ isActive }) => ({
                 padding: '10px 11px',
@@ -153,18 +181,33 @@ export default function AppLayout() {
       {/* ---- Main ---- */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header
-          className="flex items-center gap-5"
+          className="flex items-center gap-3"
           style={{
             height: 66,
             flex: 'none',
-            padding: '0 28px',
+            padding: '0 20px',
             borderBottom: '1px solid var(--border)',
           }}
         >
+          <button
+            className="app-menu-btn"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={menuOpen}
+            style={{
+              width: 38, height: 38, flex: 'none',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text)', cursor: 'pointer',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 'var(--fw-semibold)', letterSpacing: 'var(--tracking-tight)' }}>
+            <h1 style={{ fontSize: 18, fontWeight: 'var(--fw-semibold)', letterSpacing: 'var(--tracking-tight)' }}>
               {current.label}
-            </div>
+            </h1>
             <div
               className="num"
               style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-muted)', marginTop: 2, textTransform: 'uppercase' }}
@@ -174,7 +217,7 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-y-auto" style={{ padding: 28 }}>
+        <main className="app-main min-w-0 flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

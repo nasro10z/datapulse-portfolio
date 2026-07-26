@@ -26,3 +26,45 @@ body {
 ::selection {
   background: var(--accent-soft);
 }
+
+/* ============================================================
+   Layout responsive — sidebar en tiroir (drawer) sous 768px
+   ============================================================ */
+.app-main { padding: 28px; }
+.app-menu-btn { display: none; }   /* hamburger masqué sur desktop */
+.app-backdrop { display: none; }
+
+/* Le positionnement fixe du tiroir est piloté par CSS (fiable) ; la translation
+   d'ouverture est pilotée en inline depuis React (voir AppLayout) pour éviter
+   toute ambiguïté de cascade. */
+.app-sidebar {
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    box-shadow: 0 0 40px rgba(0, 0, 0, .5);
+  }
+  .app-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .app-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(0, 0, 0, .5);
+  }
+  .app-main { padding: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar { transition: none; }
+}

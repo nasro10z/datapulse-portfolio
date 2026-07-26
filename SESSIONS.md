@@ -4,6 +4,30 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Phase 10 (polish)
+
+**Phases couvertes** : Phase 10 — parcours de test, responsive mobile, accessibilité. Livrable DSIP4 laissé de côté (bloqué par la validation Scenario 6, Phase 8).
+
+### Réalisations
+- **Responsive** : sidebar convertie en **tiroir mobile** sous 768px (`AppLayout` : hamburger avec `aria-expanded`, backdrop cliquable, fermeture au clic sur un lien et via Échap). Positionnement fixe piloté par CSS (`index.css`), translation d'ouverture pilotée en **inline depuis React** via un état `isMobile` (`matchMedia`) — choix délibéré après un long faux-bug (voir ci-dessous). `main` en padding responsive (`.app-main`). Vérifié : **0 débordement horizontal** sur les 5 pages à 375px, `main` pleine largeur.
+- **Accessibilité** : titre de page en `<h1>` (les titres de Panel étaient déjà `<h2>`) → hiérarchie h1→h2 ; `:focus-visible` déjà global ; tous les interactifs (22) ont un nom accessible ; aria sur tiroir et badge ; contrastes audités **AA** (texte 18:1, muted 6.7–7.5:1, statuts 4.7–8.5:1, accent 4.3:1 réservé UI/large).
+- **Tests parcours critiques** : mise en place **Vitest + Testing Library + jsdom** (config dans `vite.config.js`, `src/test/setup.js`, script `npm test`). 6 tests / 3 fichiers : planifier une PM (submit → payload → reload), consulter+acquitter une anomalie (+ filtre sévérité), lire le forecast (rendu chart + sous-scores + changement d'horizon). API mockée (niveau intégration).
+
+### Piège rencontré (consigné en mémoire)
+Le tiroir semblait cassé (transform figé à `translateX(-100%)` même ouvert, survivant à un override inline). Cause réelle : **le Browser pane non affiché met le compositeur en pause → les transitions CSS gèlent à leur valeur de départ**, donc `getComputedStyle`/`getBoundingClientRect` renvoient l'état pré-transition. Le code était correct depuis le début (prouvé en désactivant la transition : `left:0` à l'ouverture). Mémoire créée : `browser-pane-paused-compositor`.
+
+### Validation
+- Front : `npm test` **6/6 verts** ; `npm run build` OK (55 modules). Responsive/a11y vérifiés au navigateur (mesures DOM ; dev server propre relancé — l'ancien serveur 5173 d'une session précédente servait du code périmé).
+- Backend inchangé (29/29 de la sous-session précédente).
+- ⚠️ Node absent du PATH shell mais présent (`C:\Program Files\nodejs`) ; `.claude/launch.json` (gitignoré) pointe le chemin complet de node pour lancer Vite via le Browser pane.
+
+### En suspens
+- Livrable DSIP4 + Phases 8 (branchement pipeline réel, validation Scenario 6) et 9 (UPS/generators) — toujours bloquées par le code pipeline + accès DB.
+- Option : e2e navigateur complet (Playwright) au-delà des tests d'intégration actuels.
+- Toggle thème clair (tokens prêts, pas de bouton) — a11y contrastes du thème clair non audités (non atteignable dans l'UI).
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Phase 8 (seam ML)
 
 **Phases couvertes** : Phase 8, premier pas — le *seam* d'intégration mock ↔ live. Le branchement du vrai pipeline reste **bloqué** (voir En suspens).
