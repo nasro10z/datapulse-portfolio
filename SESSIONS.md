@@ -4,6 +4,26 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Navigation en tiroir, multi-sites, i18n FR/EN
+
+**Demandes** : (1) supprimer la section « Planning calculé » de Maintenance ; (2) sélecteur de site cliquable + autres sites ; (3) navigation en menu latéral déroulant (3 lignes en haut à gauche, toutes tailles) ; (4) bouton thème déplacé en haut à droite ; (5) sélecteur de langue EN/FR à côté du thème.
+
+### Réalisations
+- **Maintenance** : section « Planning calculé » (table) supprimée. L'édition/suppression est préservée : clic sur un marqueur PM du **calendrier** → charge la PM dans le formulaire (mode édition) ; bouton Supprimer ajouté au formulaire. Marqueurs PM rendus en boutons accessibles.
+- **Sélecteur de site** : bouton bas-de-sidebar transformé en menu déroulant (`role=listbox`) — 3 sites du réseau TelcoNet (MSC-10 branché ; MSC-03, BSC-07 en démo). Choisir un site non branché affiche un écran « intégration à venir » plutôt que des données trompeuses.
+- **Navigation en tiroir sur toutes tailles** : la sidebar est masquée par défaut et révélée par le bouton 3 lignes (toujours visible, haut-gauche) ; backdrop + fermeture au clic sur un lien / Échap. `isMobile`/matchMedia supprimé (comportement unifié). Contenu principal pleine largeur.
+- **Thème en haut à droite** : bascule clair/sombre déplacée du bas de sidebar vers le header (droite), à côté du sélecteur de langue.
+- **i18n FR/EN** (`src/i18n.jsx`) : `LangProvider` + `useLang()` (`t`, `lang`, `setLang`, `locale`), dictionnaire FR/EN, persistance `localStorage` (`datapulse-lang`, défaut FR), `<html lang>` synchronisé. Segmented control FR|EN dans le header. Toutes les chaînes d'interface traduites (chrome, 5 pages, composants StatusBadge/EquipmentCard/ApiState/AnomalyHistogram/PMCalendar) ; dates via `toLocaleString(locale)` ; noms de mois/jours du calendrier dérivés de la locale. Le contenu servi par l'API (libellés de familles, messages de rappels) reste dans sa langue source — i18n backend hors périmètre.
+
+### Validation
+- Navigateur : nav masquée par défaut + hamburger l'ouvre (desktop) ; FR↔EN traduit nav/titres/thème et persiste ; site → BSC-07 affiche l'écran « integration coming soon » ; Maintenance sans table, clic calendrier → édition (form « Modifier PM-0004 », Supprimer présent). Aucune erreur console.
+- `npm test` **9/9** (tests de pages enveloppés dans `LangProvider` via `renderWithLang` ; test Maintenance réécrit pour la nouvelle UI). `npm run build` OK.
+
+### En suspens
+- Contenu API non traduit (nécessiterait un i18n backend). Sites MSC-03/BSC-07 sans données (backend mono-site). Plan « Vue globale » (manager) esquissé à partir du design (fleet score, classement des sites, KPI) — reste à implémenter.
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Bascule de thème clair/sombre
 
 **Demande** : bouton mode clair/sombre dans la sidebar, même gabarit que le bouton de sélection de site (bas-gauche).

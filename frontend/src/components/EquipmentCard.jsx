@@ -1,16 +1,18 @@
 import StatusBadge from './StatusBadge'
+import { useLang } from '../i18n'
 
 const TREND = {
-  up: { glyph: '↗', color: 'var(--status-healthy)', text: 'en hausse' },
-  stable: { glyph: '→', color: 'var(--text-muted)', text: 'stable' },
-  down: { glyph: '↘', color: 'var(--status-critical)', text: 'en baisse' },
+  up: { glyph: '↗', color: 'var(--status-healthy)' },
+  stable: { glyph: '→', color: 'var(--text-muted)' },
+  down: { glyph: '↘', color: 'var(--status-critical)' },
 }
 
 /**
  * Card d'équipement / famille d'équipement : score, tendance, statut.
  */
 export default function EquipmentCard({ label, score, status, trend, unitCount, note }) {
-  const t = TREND[trend] ?? TREND.stable
+  const { t: tr } = useLang()
+  const t = { ...(TREND[trend] ?? TREND.stable), text: tr(`trend.${trend in TREND ? trend : 'stable'}`) }
   return (
     <article
       style={{
@@ -30,7 +32,7 @@ export default function EquipmentCard({ label, score, status, trend, unitCount, 
               className="num"
               style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}
             >
-              {unitCount} unité{unitCount > 1 ? 's' : ''}
+              {tr('common.units', { n: unitCount })}
             </div>
           )}
         </div>
@@ -50,7 +52,7 @@ export default function EquipmentCard({ label, score, status, trend, unitCount, 
           {Number(score).toFixed(1)}
         </span>
         <span
-          aria-label={`Tendance : ${t.text}`}
+          aria-label={tr('trend.label', { t: t.text })}
           style={{ color: t.color, fontSize: 15 }}
         >
           {t.glyph}

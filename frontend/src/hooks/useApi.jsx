@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLang } from '../i18n'
 
 /**
  * Hook de fetch générique : { data, loading, error, reload }.
@@ -27,10 +28,11 @@ export default function useApi(fn, deps = []) {
 }
 
 export function ApiState({ loading, error, children }) {
+  const { t } = useLang()
   if (loading) {
     return (
       <div className="num" style={{ color: 'var(--text-muted)', fontSize: 12, padding: 24 }}>
-        Chargement…
+        {t('common.loading')}
       </div>
     )
   }
@@ -46,7 +48,7 @@ export function ApiState({ loading, error, children }) {
           padding: '12px 16px',
         }}
       >
-        Erreur de chargement — le backend est-il lancé sur :8000 ? ({error.message})
+        {t('common.loadError', { msg: error.message })}
       </div>
     )
   }

@@ -1,26 +1,29 @@
 import { useState } from 'react'
 import { api } from '../api/client'
 import useApi, { ApiState } from '../hooks/useApi'
+import { useLang } from '../i18n'
 import Panel from '../components/Panel'
 import TrendChart from '../components/TrendChart'
 import EquipmentCard from '../components/EquipmentCard'
 
 const HORIZONS = ['24h', '7d', '30d']
-const HORIZON_LABEL = { '24h': '24 h', '7d': '7 jours', '30d': '30 jours' }
+const HORIZON_KEY = { '24h': 'h24', '7d': 'd7', '30d': 'd30' }
 
 export default function Forecast() {
   const [horizon, setHorizon] = useState('24h')
   const forecast = useApi(() => api.healthForecast(horizon), [horizon])
   const overview = useApi(api.healthOverview)
+  const { t } = useLang()
+  const hLabel = (h) => t(`forecast.${HORIZON_KEY[h]}`)
 
   return (
     <div className="flex flex-col gap-6">
       {/* Élément dominant : chart global pleine largeur + sélecteur d'horizon */}
       <Panel
-        title="Global Health Score"
-        subtitle={`Historique + prévision — horizon ${HORIZON_LABEL[horizon]}`}
+        title={t('forecast.title')}
+        subtitle={t('forecast.subtitle', { h: hLabel(horizon) })}
         actions={
-          <div className="flex gap-1" role="group" aria-label="Horizon de prévision">
+          <div className="flex gap-1" role="group" aria-label={t('forecast.horizonLabel')}>
             {HORIZONS.map((h) => (
               <button
                 key={h}
@@ -37,7 +40,7 @@ export default function Forecast() {
                   cursor: 'pointer',
                 }}
               >
-                {HORIZON_LABEL[h]}
+                {hLabel(h)}
               </button>
             ))}
           </div>
@@ -52,8 +55,7 @@ export default function Forecast() {
               />
               {forecast.data.threshold_crossings.length > 0 && (
                 <p style={{ fontSize: 12, color: 'var(--status-critical)', marginTop: 10 }}>
-                  ▲ {forecast.data.threshold_crossings.length} franchissement(s) de seuil prévu(s)
-                  sur cet horizon.
+                  {t('forecast.crossings', { n: forecast.data.threshold_crossings.length })}
                 </p>
               )}
             </>
@@ -73,7 +75,7 @@ export default function Forecast() {
             marginBottom: 12,
           }}
         >
-          Sub-scores par famille d’équipement
+          {t('forecast.subScores')}
         </h2>
         <ApiState loading={overview.loading} error={overview.error}>
           {overview.data && (

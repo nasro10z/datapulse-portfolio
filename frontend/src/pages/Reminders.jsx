@@ -1,13 +1,8 @@
 import { useState } from 'react'
 import { api } from '../api/client'
 import useApi, { ApiState } from '../hooks/useApi'
+import { useLang } from '../i18n'
 import StatusBadge from '../components/StatusBadge'
-
-const KIND_LABEL = {
-  upcoming_pm: 'Maintenance à venir',
-  threshold_approach: 'Seuil approchant',
-  unacked_anomaly: 'Anomalie non acquittée',
-}
 
 const SEV_COLOR = {
   info: 'var(--info)',
@@ -16,9 +11,9 @@ const SEV_COLOR = {
 }
 
 const SNOOZE = [
-  { label: '1 h', hours: 1 },
-  { label: '1 j', hours: 24 },
-  { label: '7 j', hours: 168 },
+  { key: 'h1', hours: 1 },
+  { key: 'd1', hours: 24 },
+  { key: 'd7', hours: 168 },
 ]
 
 const actionBtn = {
@@ -34,6 +29,7 @@ const actionBtn = {
 }
 
 export default function Reminders() {
+  const { t, locale } = useLang()
   const { data, loading, error, reload } = useApi(api.reminders)
   const [busyId, setBusyId] = useState(null)
 
@@ -51,8 +47,8 @@ export default function Reminders() {
     <ApiState loading={loading} error={error}>
       {data && data.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-16">
-          <div style={{ fontSize: 14, fontWeight: 500 }}>Tout est à jour</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Aucun rappel actif dans cette vue.</div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{t('reminders.emptyTitle')}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{t('reminders.emptyBody')}</div>
         </div>
       )}
       {data && data.length > 0 && (
@@ -72,13 +68,13 @@ export default function Reminders() {
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{KIND_LABEL[r.kind] ?? r.kind}</span>
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{t(`reminders.${r.kind}`)}</span>
                   <span className="num" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.equipment}</span>
                   <StatusBadge status={r.severity} />
                 </div>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.55 }}>{r.message}</p>
                 <div className="num" style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 6 }}>
-                  Échéance : {new Date(r.due_at).toLocaleString('fr-FR')}
+                  {t('common.dueAt', { date: new Date(r.due_at).toLocaleString(locale) })}
                 </div>
               </div>
 
@@ -88,10 +84,10 @@ export default function Reminders() {
                   disabled={busyId === r.id}
                   onClick={() => run(r.id, () => api.acknowledgeReminder(r.id))}
                 >
-                  Acquitter
+                  {t('reminders.acknowledge')}
                 </button>
                 <div className="flex items-center gap-1">
-                  <span className="num" style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>Reporter</span>
+                  <span className="num" style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{t('reminders.snooze')}</span>
                   {SNOOZE.map((s) => (
                     <button
                       key={s.hours}
@@ -99,7 +95,7 @@ export default function Reminders() {
                       disabled={busyId === r.id}
                       onClick={() => run(r.id, () => api.snoozeReminder(r.id, s.hours))}
                     >
-                      {s.label}
+                      {t(`reminders.${s.key}`)}
                     </button>
                   ))}
                 </div>

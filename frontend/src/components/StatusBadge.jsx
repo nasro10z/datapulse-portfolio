@@ -1,11 +1,13 @@
+import { useLang } from '../i18n'
+
 const STATUS = {
-  healthy: { label: 'Healthy', color: 'var(--status-healthy)', bg: 'var(--status-healthy-soft)', icon: '●' },
-  watch: { label: 'Watch', color: 'var(--status-watch)', bg: 'var(--status-watch-soft)', icon: '◆' },
-  critical: { label: 'Critical', color: 'var(--status-critical)', bg: 'var(--status-critical-soft)', icon: '▲' },
-  // Sévérités d'anomalie (mêmes familles visuelles, libellés dédiés)
-  alert: { label: 'Alerte', color: 'var(--status-watch)', bg: 'var(--status-watch-soft)', icon: '◆' },
-  info: { label: 'Info', color: 'var(--info)', bg: 'var(--accent-soft)', icon: '●' },
-  warning: { label: 'Warning', color: 'var(--status-watch)', bg: 'var(--status-watch-soft)', icon: '◆' },
+  healthy: { color: 'var(--status-healthy)', bg: 'var(--status-healthy-soft)', icon: '●' },
+  watch: { color: 'var(--status-watch)', bg: 'var(--status-watch-soft)', icon: '◆' },
+  critical: { color: 'var(--status-critical)', bg: 'var(--status-critical-soft)', icon: '▲' },
+  // Sévérités d'anomalie (mêmes familles visuelles)
+  alert: { color: 'var(--status-watch)', bg: 'var(--status-watch-soft)', icon: '◆' },
+  info: { color: 'var(--info)', bg: 'var(--accent-soft)', icon: '●' },
+  warning: { color: 'var(--status-watch)', bg: 'var(--status-watch-soft)', icon: '◆' },
 }
 
 /**
@@ -13,6 +15,7 @@ const STATUS = {
  * porté par la couleur seule.
  */
 export default function StatusBadge({ status, label, className = '' }) {
+  const { t } = useLang()
   const s = STATUS[status] ?? STATUS.info
   return (
     <span
@@ -29,7 +32,7 @@ export default function StatusBadge({ status, label, className = '' }) {
       }}
     >
       <span aria-hidden="true" style={{ fontSize: 8 }}>{s.icon}</span>
-      {label ?? s.label}
+      {label ?? t(`status.${status}`)}
     </span>
   )
 }

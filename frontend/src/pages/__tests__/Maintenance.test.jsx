@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderWithLang as render } from '../../test/utils'
 import Maintenance from '../Maintenance'
 import { api } from '../../api/client'
 
@@ -24,15 +25,13 @@ beforeEach(() => {
 })
 
 describe('Parcours : planifier une PM', () => {
-  it('soumet le formulaire et rafraîchit le calendrier', async () => {
+  it('soumet le formulaire avec le bon payload et rafraîchit le calendrier', async () => {
     const user = userEvent.setup()
-    // calendrier vide au départ, puis contenant la nouvelle PM après reload
-    api.maintenanceCalendar.mockResolvedValueOnce([]).mockResolvedValue([entry])
     render(<Maintenance />)
 
-    await screen.findByText(/Aucune PM planifiée/i)
-
-    await user.type(screen.getByPlaceholderText('STULZ-03'), 'STULZ-05')
+    // le formulaire de planification est présent
+    const equip = await screen.findByPlaceholderText('STULZ-03')
+    await user.type(equip, 'STULZ-05')
     fireEvent.change(document.querySelector('input[type="date"]'), { target: { value: '2026-07-01' } })
     await user.click(screen.getByRole('button', { name: 'Planifier' }))
 
@@ -43,7 +42,7 @@ describe('Parcours : planifier une PM', () => {
       period_value: 3,
       period_unit: 'months',
     })
-    // la PM créée apparaît après le reload
-    expect(await screen.findAllByText('STULZ-05')).not.toHaveLength(0)
+    // le calendrier est rechargé après création (1 au montage + 1 après submit)
+    await waitFor(() => expect(api.maintenanceCalendar).toHaveBeenCalledTimes(2))
   })
 })

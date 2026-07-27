@@ -1,19 +1,12 @@
 import { useMemo, useState } from 'react'
 import { api } from '../api/client'
 import useApi, { ApiState } from '../hooks/useApi'
+import { useLang } from '../i18n'
 import Panel from '../components/Panel'
 import StatusBadge from '../components/StatusBadge'
 import AnomalyHistogram from '../components/AnomalyHistogram'
 
-const TYPE_LABEL = { collective: 'Collective', duration: 'Durée', sequence: 'Séquence' }
-const DIR_LABEL = { high: '↑ Haut', low: '↓ Bas' }
-const SEV_LABEL = { alert: 'Alerte', critical: 'Critique' }
-const STATUS_LABEL = { open: 'Ouverte', acknowledged: 'Acquittée', resolved: 'Résolue' }
-const BUCKETS = [
-  { key: 'day', label: 'Jour' },
-  { key: 'week', label: 'Semaine' },
-  { key: 'month', label: 'Mois' },
-]
+const BUCKETS = ['day', 'week', 'month']
 
 const selectStyle = {
   background: 'var(--surface-inset)',
@@ -86,6 +79,13 @@ function ActionButton({ label, onClick, busy, variant = 'ghost' }) {
 }
 
 export default function Anomalies() {
+  const { t, locale } = useLang()
+  const TYPE_LABEL = { collective: t('anomalies.typeCollective'), duration: t('anomalies.typeDuration'), sequence: t('anomalies.typeSequence') }
+  const DIR_LABEL = { high: t('anomalies.dirHigh'), low: t('anomalies.dirLow') }
+  const SEV_LABEL = { alert: t('anomalies.sevAlert'), critical: t('anomalies.sevCritical') }
+  const STATUS_LABEL = { open: t('anomalies.stOpen'), acknowledged: t('anomalies.stAck'), resolved: t('anomalies.stResolved') }
+  const BUCKET_LABEL = { day: t('anomalies.bucketDay'), week: t('anomalies.bucketWeek'), month: t('anomalies.bucketMonth') }
+
   const stats = useApi(api.anomalyStats)
   const [bucket, setBucket] = useState('day')
   const histogram = useApi(() => api.anomalyHistogram(bucket), [bucket])
@@ -116,33 +116,33 @@ export default function Anomalies() {
       <ApiState loading={stats.loading} error={stats.error}>
         {stats.data && (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            <Stat label="Total anomalies" value={stats.data.total} />
-            <Stat label="Taux d’anomalies" value={stats.data.anomaly_rate_pct.toFixed(2)} suffix="%" />
-            <Stat label="MTBA" value={stats.data.mtba_hours.toFixed(1)} suffix="h" />
-            <Stat label="Top contributeur" value={stats.data.top_equipment} suffix={`× ${stats.data.top_equipment_count}`} />
+            <Stat label={t('anomalies.total')} value={stats.data.total} />
+            <Stat label={t('anomalies.rate')} value={stats.data.anomaly_rate_pct.toFixed(2)} suffix="%" />
+            <Stat label={t('anomalies.mtba')} value={stats.data.mtba_hours.toFixed(1)} suffix="h" />
+            <Stat label={t('anomalies.top')} value={stats.data.top_equipment} suffix={`× ${stats.data.top_equipment_count}`} />
           </div>
         )}
       </ApiState>
 
       {/* Histogramme temporel + sélecteur de granularité */}
       <Panel
-        title="Anomalies dans le temps"
-        subtitle="Comptes par période, empilés par sévérité"
+        title={t('anomalies.histTitle')}
+        subtitle={t('anomalies.histSub')}
         actions={
-          <div className="flex gap-1" role="group" aria-label="Granularité de l’histogramme">
+          <div className="flex gap-1" role="group" aria-label={t('anomalies.bucketGroup')}>
             {BUCKETS.map((b) => (
               <button
-                key={b.key}
-                onClick={() => setBucket(b.key)}
+                key={b}
+                onClick={() => setBucket(b)}
                 className="num"
                 style={{
                   fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${b.key === bucket ? 'var(--accent)' : 'var(--border)'}`,
-                  background: b.key === bucket ? 'var(--accent-soft)' : 'transparent',
-                  color: b.key === bucket ? 'var(--accent-hover)' : 'var(--text-muted)', cursor: 'pointer',
+                  border: `1px solid ${b === bucket ? 'var(--accent)' : 'var(--border)'}`,
+                  background: b === bucket ? 'var(--accent-soft)' : 'transparent',
+                  color: b === bucket ? 'var(--accent-hover)' : 'var(--text-muted)', cursor: 'pointer',
                 }}
               >
-                {b.label}
+                {BUCKET_LABEL[b]}
               </button>
             ))}
           </div>
@@ -154,14 +154,14 @@ export default function Anomalies() {
       </Panel>
 
       {/* Répartitions */}
-      <Panel title="Répartitions" subtitle="Par type, sévérité, direction et statut">
+      <Panel title={t('anomalies.distTitle')} subtitle={t('anomalies.distSub')}>
         <ApiState loading={stats.loading} error={stats.error}>
           {stats.data && (
             <div className="grid gap-8" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <Distribution title="Par type" data={stats.data.by_type} labels={TYPE_LABEL} />
-              <Distribution title="Par sévérité" data={stats.data.by_severity} labels={SEV_LABEL} />
-              <Distribution title="Par direction" data={stats.data.by_direction} labels={DIR_LABEL} />
-              <Distribution title="Par statut" data={stats.data.by_status} labels={STATUS_LABEL} color="var(--viz-2)" />
+              <Distribution title={t('anomalies.byType')} data={stats.data.by_type} labels={TYPE_LABEL} />
+              <Distribution title={t('anomalies.bySeverity')} data={stats.data.by_severity} labels={SEV_LABEL} />
+              <Distribution title={t('anomalies.byDirection')} data={stats.data.by_direction} labels={DIR_LABEL} />
+              <Distribution title={t('anomalies.byStatus')} data={stats.data.by_status} labels={STATUS_LABEL} color="var(--viz-2)" />
             </div>
           )}
         </ApiState>
@@ -169,20 +169,20 @@ export default function Anomalies() {
 
       {/* Table + filtres + actions */}
       <Panel
-        title="Épisodes récents"
-        subtitle="Détection par hystérésis — seuils Tukey 27.85 / 30.40 °C"
+        title={t('anomalies.episodes')}
+        subtitle={t('anomalies.episodesSub')}
         actions={
           <div className="flex gap-2">
-            <select aria-label="Filtrer par équipement" style={selectStyle}
+            <select aria-label={t('anomalies.filterEquip')} style={selectStyle}
               value={filters.equipment} onChange={(e) => setFilters({ ...filters, equipment: e.target.value })}>
-              <option value="">Tous équipements</option>
+              <option value="">{t('anomalies.allEquip')}</option>
               {equipmentOptions.map((eq) => <option key={eq} value={eq}>{eq}</option>)}
             </select>
-            <select aria-label="Filtrer par sévérité" style={selectStyle}
+            <select aria-label={t('anomalies.filterSev')} style={selectStyle}
               value={filters.severity} onChange={(e) => setFilters({ ...filters, severity: e.target.value })}>
-              <option value="">Toutes sévérités</option>
-              <option value="alert">Alerte</option>
-              <option value="critical">Critique</option>
+              <option value="">{t('anomalies.allSev')}</option>
+              <option value="alert">{t('anomalies.sevAlert')}</option>
+              <option value="critical">{t('anomalies.sevCritical')}</option>
             </select>
           </div>
         }
@@ -192,14 +192,14 @@ export default function Anomalies() {
             <div style={{ overflowX: 'auto' }}>
               {episodes.data.length === 0 && (
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '12px 0' }}>
-                  Aucun épisode pour ces filtres.
+                  {t('anomalies.empty')}
                 </p>
               )}
               {episodes.data.length > 0 && (
                 <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: 12.5 }}>
                   <thead>
                     <tr className="num" style={{ fontSize: 10, letterSpacing: 'var(--tracking-caps)', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'left' }}>
-                      {['Début', 'Équipement', 'Type', 'Sévérité', 'Direction', 'Durée', 'Pic', 'Statut', ''].map((h, i) => (
+                      {[t('anomalies.colStart'), t('anomalies.colEquip'), t('anomalies.colType'), t('anomalies.colSev'), t('anomalies.colDir'), t('anomalies.colDur'), t('anomalies.colPeak'), t('anomalies.colStatus'), ''].map((h, i) => (
                         <th key={i} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>{h}</th>
                       ))}
                     </tr>
@@ -207,7 +207,7 @@ export default function Anomalies() {
                   <tbody>
                     {episodes.data.map((a) => (
                       <tr key={a.id} style={{ borderBottom: '1px solid var(--hairline)' }}>
-                        <td className="num" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{new Date(a.start).toLocaleString('fr-FR')}</td>
+                        <td className="num" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{new Date(a.start).toLocaleString(locale)}</td>
                         <td style={{ padding: '9px 10px' }}>{a.equipment}</td>
                         <td style={{ padding: '9px 10px' }}>{TYPE_LABEL[a.type] ?? a.type}</td>
                         <td style={{ padding: '9px 10px' }}>
@@ -220,10 +220,10 @@ export default function Anomalies() {
                         <td style={{ padding: '9px 10px' }}>
                           <span className="flex gap-1.5 justify-end">
                             {a.status === 'open' && (
-                              <ActionButton label="Acquitter" busy={busyId === a.id} onClick={() => act(a.id, 'acknowledged')} />
+                              <ActionButton label={t('anomalies.acknowledge')} busy={busyId === a.id} onClick={() => act(a.id, 'acknowledged')} />
                             )}
                             {a.status !== 'resolved' && (
-                              <ActionButton label="Résoudre" variant="solid" busy={busyId === a.id} onClick={() => act(a.id, 'resolved')} />
+                              <ActionButton label={t('anomalies.resolve')} variant="solid" busy={busyId === a.id} onClick={() => act(a.id, 'resolved')} />
                             )}
                           </span>
                         </td>

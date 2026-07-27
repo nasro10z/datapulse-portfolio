@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useLang } from '../i18n'
 
 const W = 800
 const H = 200
@@ -6,14 +7,14 @@ const PAD = { top: 12, right: 12, bottom: 26, left: 30 }
 
 // sévérités empilées : alerte (bas) puis critique (haut), couleurs sémantiques de statut
 const SEV = [
-  { key: 'alert', color: 'var(--status-watch)', label: 'Alerte' },
-  { key: 'critical', color: 'var(--status-critical)', label: 'Critique' },
+  { key: 'alert', color: 'var(--status-watch)', labelKey: 'anomalies.sevAlert' },
+  { key: 'critical', color: 'var(--status-critical)', labelKey: 'anomalies.sevCritical' },
 ]
 
-const fmtLabel = (iso, bucket) => {
+const fmtLabel = (iso, bucket, locale) => {
   const d = new Date(iso)
-  if (bucket === 'month') return d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+  if (bucket === 'month') return d.toLocaleDateString(locale, { month: 'short', year: '2-digit' })
+  return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
 }
 
 /**
@@ -21,6 +22,7 @@ const fmtLabel = (iso, bucket) => {
  * bins: [{ period_start, total, by_severity: { alert, critical } }]
  */
 export default function AnomalyHistogram({ bins = [], bucket = 'day' }) {
+  const { t, locale } = useLang()
   const [hover, setHover] = useState(null)
 
   const model = useMemo(() => {
@@ -43,7 +45,7 @@ export default function AnomalyHistogram({ bins = [], bucket = 'day' }) {
   if (!model) {
     return (
       <div className="num" style={{ color: 'var(--text-muted)', fontSize: 12, padding: 24 }}>
-        Aucune donnée sur la fenêtre.
+        {t('anomalies.histEmpty')}
       </div>
     )
   }
@@ -76,7 +78,7 @@ export default function AnomalyHistogram({ bins = [], bucket = 'day' }) {
               {i % model.tickEvery === 0 && (
                 <text x={b.cx} y={H - 9} textAnchor="middle"
                   style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fill: 'var(--text-muted)' }}>
-                  {fmtLabel(b.period_start, bucket)}
+                  {fmtLabel(b.period_start, bucket, locale)}
                 </text>
               )}
             </g>
@@ -86,8 +88,8 @@ export default function AnomalyHistogram({ bins = [], bucket = 'day' }) {
 
       {hover && (
         <div className="num" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-          {fmtLabel(hover.period_start, bucket)} — <strong style={{ color: 'var(--text)' }}>{hover.total}</strong> anomalie{hover.total > 1 ? 's' : ''}
-          {hover.by_severity?.critical ? ` · ${hover.by_severity.critical} critique(s)` : ''}
+          {fmtLabel(hover.period_start, bucket, locale)} — <strong style={{ color: 'var(--text)' }}>{t('anomalies.hoverAnoms', { n: hover.total })}</strong>
+          {hover.by_severity?.critical ? ` · ${t('anomalies.hoverCrit', { n: hover.by_severity.critical })}` : ''}
         </div>
       )}
 
@@ -95,7 +97,7 @@ export default function AnomalyHistogram({ bins = [], bucket = 'day' }) {
         {SEV.map((s) => (
           <span key={s.key} className="flex items-center gap-1.5" style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
             <span style={{ width: 9, height: 9, borderRadius: 2, background: s.color, display: 'inline-block' }} />
-            {s.label}
+            {t(s.labelKey)}
           </span>
         ))}
       </div>

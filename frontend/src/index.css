@@ -34,34 +34,33 @@ body {
 .app-menu-btn { display: none; }   /* hamburger masqué sur desktop */
 .app-backdrop { display: none; }
 
-/* Le positionnement fixe du tiroir est piloté par CSS (fiable) ; la translation
-   d'ouverture est pilotée en inline depuis React (voir AppLayout) pour éviter
-   toute ambiguïté de cascade. */
+/* Navigation en tiroir sur TOUTES les tailles d'écran : masquée par défaut,
+   révélée par le bouton (3 lignes) en haut à gauche. Positionnement fixe piloté
+   par CSS ; la translation d'ouverture est pilotée en inline depuis React. */
 .app-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  box-shadow: 0 0 40px rgba(0, 0, 0, .45);
   transition: transform var(--dur-base) var(--ease-standard);
+}
+.app-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.app-backdrop { display: none; }
+.app-backdrop.open {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, .5);
 }
 
 @media (max-width: 768px) {
-  .app-sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 40;
-    box-shadow: 0 0 40px rgba(0, 0, 0, .5);
-  }
-  .app-menu-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .app-backdrop.open {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    background: rgba(0, 0, 0, .5);
-  }
   .app-main { padding: 16px; }
 }
 

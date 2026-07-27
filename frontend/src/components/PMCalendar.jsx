@@ -1,10 +1,5 @@
 import { useMemo, useState } from 'react'
-
-const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-const MONTHS = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-]
+import { useLang } from '../i18n'
 
 // couleur du marqueur selon l'urgence (jours restants)
 const urgencyColor = (days) =>
@@ -12,11 +7,18 @@ const urgencyColor = (days) =>
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
+// noms de jours (lundi d'abord) et de mois dérivés de la locale active
+const weekdayNames = (locale) =>
+  [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }))
+
 /**
  * Calendrier mensuel des prochaines PM — élément dominant de la page Maintenance.
  * entries: [{ id, equipment, next_pm_date, days_remaining }]
+ * onSelect(entry) : clic sur un marqueur PM (édition depuis le calendrier).
  */
-export default function PMCalendar({ entries = [] }) {
+export default function PMCalendar({ entries = [], onSelect }) {
+  const { t, locale } = useLang()
+  const WEEKDAYS = useMemo(() => weekdayNames(locale), [locale])
   const today = new Date()
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() })
 
@@ -47,11 +49,12 @@ export default function PMCalendar({ entries = [] }) {
   return (
     <div>
       <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>
-          {MONTHS[view.month]} <span className="num" style={{ color: 'var(--text-muted)' }}>{view.year}</span>
+        <div style={{ fontSize: 15, fontWeight: 600, textTransform: 'capitalize' }}>
+          {new Date(view.year, view.month, 1).toLocaleDateString(locale, { month: 'long' })}{' '}
+          <span className="num" style={{ color: 'var(--text-muted)' }}>{view.year}</span>
         </div>
         <div className="flex gap-1">
-          {[['‹', -1], ['Aujourd’hui', 0], ['›', 1]].map(([label, delta]) => (
+          {[['‹', -1], [t('common.today'), 0], ['›', 1]].map(([label, delta]) => (
             <button
               key={label}
               onClick={() => (delta === 0 ? setView({ year: today.getFullYear(), month: today.getMonth() }) : shift(delta))}
@@ -94,20 +97,25 @@ export default function PMCalendar({ entries = [] }) {
                 {d.getDate()}
               </div>
               {pms.map((pm) => (
-                <div
+                <button
                   key={pm.id}
+                  type="button"
+                  onClick={() => onSelect?.(pm)}
                   title={`${pm.equipment} — PM ${key} (J−${pm.days_remaining})`}
+                  aria-label={t('maintenance.editPmAria', { equip: pm.equipment, date: key })}
                   className="num"
                   style={{
+                    display: 'block', width: '100%', textAlign: 'left',
                     fontSize: 10, fontWeight: 600, lineHeight: 1.3,
                     padding: '2px 5px', borderRadius: 4,
                     background: 'var(--surface-inset)',
-                    borderLeft: `3px solid ${urgencyColor(pm.days_remaining)}`,
+                    border: 'none', borderLeft: `3px solid ${urgencyColor(pm.days_remaining)}`,
+                    color: 'var(--text)', cursor: onSelect ? 'pointer' : 'default',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}
                 >
                   {pm.equipment}
-                </div>
+                </button>
               ))}
             </div>
           )
