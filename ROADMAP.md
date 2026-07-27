@@ -32,20 +32,28 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [ ] Brancher chaque page sur les endpoints mockés de la Phase 1
 
 ## Phase 3 — Page Site Health Overview
-- [ ] Health score agrégé du site (gauge/radial)
-- [ ] Cards par famille d'équipement (10 STULZ, 2 SOCOMEC, 2 YANAN) avec mini-score, tendance, badge de statut
+- [x] Health score agrégé du site (gauge/radial)
+- [x] Cards par famille d'équipement (10 STULZ, 2 SOCOMEC, 2 YANAN) avec mini-score, tendance, badge de statut
 
 ## Phase 4 — Page Prédiction des pannes (Forecast)
-- [ ] Global Health Score Chart en pleine largeur, sélecteur d'horizon (24h/7j/30j)
-- [ ] Bandes de confiance + alertes de franchissement de seuil prévu
-- [ ] Section sub-scores en dessous, cards secondaires par famille d'équipement
+- [x] Global Health Score Chart en pleine largeur, sélecteur d'horizon (24h/7j/30j)
+- [x] Bandes de confiance + alertes de franchissement de seuil prévu
+- [x] Section sub-scores en dessous, cards secondaires par famille d'équipement
 
+<<<<<<< HEAD
 ## Phase 5 — Page Anomaly Detection ✅
 - [x] Stat cards : total anomalies, taux d'anomalies, MTBA, équipement top contributeur
 - [x] Histogramme des comptes d'anomalies dans le temps (filtrable jour/semaine/mois)
 - [x] Répartition par type (collective/durée/séquence) et sévérité (alerte/critique, haut/bas) — + direction + statut
 - [x] Table des épisodes récents avec actions (acquitter/résoudre) — + filtres équipement/sévérité
 - [x] Backend : `PATCH /api/anomalies/{id}` (action persistée) + `GET /api/anomalies/histogram?bucket=`
+=======
+## Phase 5 — Page Anomaly Detection
+- [x] Stat cards : total anomalies, taux d'anomalies, MTBA, équipement top contributeur
+- [x] Histogramme des comptes d'anomalies dans le temps (filtrable jour/semaine/mois)
+- [x] Répartition par type (collective/durée/séquence) et sévérité (alerte/critique, haut/bas)
+- [x] Table des épisodes récents avec actions (acquitter/résoudre)
+>>>>>>> b9028691a7679fd48982e990d9e01752e3b0c38a
 
 ## Phase 6 — Page Maintenance Préventive ✅
 - [x] Calendrier en haut (élément dominant) — vue mensuelle navigable, marqueurs PM colorés par urgence

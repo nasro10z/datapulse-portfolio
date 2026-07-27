@@ -5,9 +5,15 @@ import { useLang } from '../i18n'
 import Panel from '../components/Panel'
 import TrendChart from '../components/TrendChart'
 import EquipmentCard from '../components/EquipmentCard'
+import SegmentedControl from '../components/SegmentedControl'
 
+<<<<<<< HEAD
 const HORIZONS = ['24h', '7d', '30d']
 const HORIZON_KEY = { '24h': 'h24', '7d': 'd7', '30d': 'd30' }
+=======
+const HORIZON_LABEL = { '24h': '24 h', '7d': '7 jours', '30d': '30 jours' }
+const HORIZONS = Object.entries(HORIZON_LABEL).map(([value, label]) => ({ value, label }))
+>>>>>>> b9028691a7679fd48982e990d9e01752e3b0c38a
 
 export default function Forecast() {
   const [horizon, setHorizon] = useState('24h')
@@ -23,6 +29,7 @@ export default function Forecast() {
         title={t('forecast.title')}
         subtitle={t('forecast.subtitle', { h: hLabel(horizon) })}
         actions={
+<<<<<<< HEAD
           <div className="flex gap-1" role="group" aria-label={t('forecast.horizonLabel')}>
             {HORIZONS.map((h) => (
               <button
@@ -44,6 +51,14 @@ export default function Forecast() {
               </button>
             ))}
           </div>
+=======
+          <SegmentedControl
+            options={HORIZONS}
+            value={horizon}
+            onChange={setHorizon}
+            ariaLabel="Horizon de prévision"
+          />
+>>>>>>> b9028691a7679fd48982e990d9e01752e3b0c38a
         }
       >
         <ApiState loading={forecast.loading} error={forecast.error}>

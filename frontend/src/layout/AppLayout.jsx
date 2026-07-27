@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
+<<<<<<< HEAD
 import { api } from '../api/client'
 import useApi from '../hooks/useApi'
 import useTheme from '../hooks/useTheme'
@@ -30,6 +31,9 @@ const GlobeIcon = () => (
     <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
   </svg>
 )
+=======
+import ThemeToggle from '../components/ThemeToggle'
+>>>>>>> b9028691a7679fd48982e990d9e01752e3b0c38a
 
 const NAV = [
   { to: '/', key: 'siteHealth', icon: <path d="M22 12h-4l-3 9L9 3l-3 9H2" /> },
@@ -216,6 +220,10 @@ export default function AppLayout() {
               <span style={{ display: 'flex', color: 'var(--accent)' }}>{isLight ? <MoonIcon /> : <SunIcon />}</span>
               <span className="num hide-sm" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--tracking-wide)' }}>{isLight ? t('layout.light') : t('layout.dark')}</span>
             </button>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
           </div>
         </header>
 
