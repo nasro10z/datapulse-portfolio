@@ -64,6 +64,11 @@ body {
   .app-main { padding: 16px; }
 }
 
+/* Masqué sur très petits écrans (ex. libellé du bouton thème → icône seule) */
+@media (max-width: 480px) {
+  .hide-sm { display: none !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-sidebar { transition: none; }
 }

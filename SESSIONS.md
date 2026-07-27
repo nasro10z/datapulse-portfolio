@@ -4,6 +4,24 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Vue globale + responsive mobile
+
+**Demandes** : (1) vue globale de tous les sites, puis personnalisation au site sélectionné ; (2) rendre l'ensemble mobile-friendly.
+
+### Réalisations
+- **Vue globale (persona manager)** : `pages/GlobalView.jsx` + données de flotte partagées `src/sites.js` (3 sites TelcoNet avec score/statut/légende/anomalies 7j/PM la plus proche/défaut principal ; MSC-10 aligné sur le score réel ~82). KPIs de flotte (score moyen, actifs totaux, anomalies 7j, PM la plus proche), bandeau d'insight sur le site le plus à risque, et **classement des sites du plus à risque au plus sain** (cartes cliquables).
+- **Navigation globale ↔ site** dans `AppLayout` : l'app démarre en **vue globale** ; sélectionner un site (carte du classement ou menu du sélecteur, nouvelle entrée « Vue globale » en tête) **personnalise** l'app sur ce site (nav par-site affichée, pages routées). Un site non branché (MSC-03/BSC-07) affiche « intégration à venir » + bouton retour à la vue globale. La nav par-site est masquée en vue globale.
+- **Mobile-friendly** : une seule build responsive sert desktop et mobile. En-tête compacté (padding réduit, libellé du thème masqué < 480px via `.hide-sm`, titre tronqué), sélecteur de langue conservé. Vérifié à 375px : aucun débordement horizontal (vue globale, pages par-site, table d'anomalies qui défile dans son conteneur), en-tête sans débordement.
+
+### Validation
+- Navigateur : landing en vue globale (flotte 80/100, classement BSC-07 69 → MSC-10 82 → MSC-03 88) ; clic MSC-10 → page Santé du site réelle (81.6) + nav par-site ; retour « Vue globale » via le sélecteur → nav masquée, KPIs. Mobile 375px : 0 débordement, thème en icône seule, table défilante. Aucune erreur console.
+- `npm test` **9/9**. `npm run build` OK.
+
+### Note
+« Version mobile » = design responsive unique (pas de second codebase) : le même build s'adapte au téléphone et au desktop (standard, évite la double maintenance).
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Navigation en tiroir, multi-sites, i18n FR/EN
 
 **Demandes** : (1) supprimer la section « Planning calculé » de Maintenance ; (2) sélecteur de site cliquable + autres sites ; (3) navigation en menu latéral déroulant (3 lignes en haut à gauche, toutes tailles) ; (4) bouton thème déplacé en haut à droite ; (5) sélecteur de langue EN/FR à côté du thème.

@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import { api } from '../api/client'
 import useApi from '../hooks/useApi'
 import useTheme from '../hooks/useTheme'
 import { useLang, LANGS } from '../i18n'
-
-// Parc de sites (réseau TelcoNet — cf. design Identity v2). Seul MSC-10 a des
-// données branchées côté backend ; les autres sont des emplacements de démo.
-const SITES = [
-  { id: 'msc10', name: 'MSC-10', operator: 'TelcoNet', assets: 14, connected: true },
-  { id: 'msc03', name: 'MSC-03', operator: 'TelcoNet', assets: 22, connected: false },
-  { id: 'bsc07', name: 'BSC-07', operator: 'TelcoNet', assets: 9, connected: false },
-]
+import { SITES, findSite } from '../sites'
+import GlobalView from '../pages/GlobalView'
 
 const footerControl = {
   display: 'flex', alignItems: 'center', gap: 9, width: '100%',
@@ -31,6 +25,11 @@ const MoonIcon = () => (
     <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
   </svg>
 )
+const GlobeIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
+  </svg>
+)
 
 const NAV = [
   { to: '/', key: 'siteHealth', icon: <path d="M22 12h-4l-3 9L9 3l-3 9H2" /> },
@@ -44,6 +43,7 @@ const TITLES = Object.fromEntries(NAV.map((n) => [n.to, n]))
 
 export default function AppLayout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const currentNav = TITLES[pathname] ?? NAV[0]
   const { isLight, toggle: toggleTheme } = useTheme()
   const { lang, setLang, t } = useLang()
@@ -55,14 +55,17 @@ export default function AppLayout() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // rechargé à chaque changement de page (couvre les acquittements/snooze depuis Reminders)
   const reminders = useApi(api.remindersCount, [pathname])
   const reminderCount = reminders.data?.count ?? 0
 
-  // sélection de site
-  const [siteId, setSiteId] = useState('msc10')
+  // vue : 'global' (agrégat multi-sites) ou l'id d'un site (personnalisé)
+  const [view, setView] = useState('global')
   const [siteMenuOpen, setSiteMenuOpen] = useState(false)
-  const site = SITES.find((s) => s.id === siteId) ?? SITES[0]
+  const isGlobal = view === 'global'
+  const site = isGlobal ? null : findSite(view) ?? SITES[0]
+
+  const enterSite = (id) => { setView(id); setSiteMenuOpen(false); setMenuOpen(false); navigate('/') }
+  const goGlobal = () => { setView('global'); setSiteMenuOpen(false); setMenuOpen(false) }
 
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg)' }}>
@@ -83,56 +86,70 @@ export default function AppLayout() {
           <Logo />
         </div>
 
-        <div className="num" style={{ fontSize: 9.5, letterSpacing: 'var(--tracking-caps)', color: 'var(--text-muted)', padding: '8px 10px 6px', textTransform: 'uppercase' }}>
-          {t('nav.section')}
-        </div>
-
-        <nav className="flex flex-col gap-1" aria-label={t('nav.section')}>
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-3"
-              style={({ isActive }) => ({
-                padding: '10px 11px', borderRadius: 10,
-                border: `1px solid ${isActive ? 'var(--border)' : 'transparent'}`,
-                background: isActive ? 'var(--accent-soft)' : 'transparent',
-                color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                transition: 'background var(--transition-fast), color var(--transition-fast)',
-              })}
-            >
-              {({ isActive }) => (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={isActive ? 'var(--accent)' : 'currentColor'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }} aria-hidden="true">
-                    {item.icon}
-                  </svg>
-                  <span style={{ lineHeight: 1.3 }}>
-                    <span className="block" style={{ fontSize: 12.5, fontWeight: 500 }}>{t(`nav.${item.key}`)}</span>
-                    <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{t(`nav.${item.key}Sub`)}</span>
-                  </span>
-                  {item.to === '/reminders' && reminderCount > 0 && (
-                    <span className="num" aria-label={t('layout.remindersActive', { n: reminderCount })}
-                      style={{ marginLeft: 'auto', flex: 'none', minWidth: 18, height: 18, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, borderRadius: 'var(--radius-pill)', background: 'var(--status-watch)', color: 'var(--text-inverse)' }}>
-                      {reminderCount}
-                    </span>
+        {/* Navigation par site — masquée en vue globale */}
+        {!isGlobal && (
+          <>
+            <div className="num" style={{ fontSize: 9.5, letterSpacing: 'var(--tracking-caps)', color: 'var(--text-muted)', padding: '8px 10px 6px', textTransform: 'uppercase' }}>
+              {t('nav.section')}
+            </div>
+            <nav className="flex flex-col gap-1" aria-label={t('nav.section')}>
+              {NAV.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3"
+                  style={({ isActive }) => ({
+                    padding: '10px 11px', borderRadius: 10,
+                    border: `1px solid ${isActive ? 'var(--border)' : 'transparent'}`,
+                    background: isActive ? 'var(--accent-soft)' : 'transparent',
+                    color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                    transition: 'background var(--transition-fast), color var(--transition-fast)',
+                  })}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={isActive ? 'var(--accent)' : 'currentColor'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }} aria-hidden="true">
+                        {item.icon}
+                      </svg>
+                      <span style={{ lineHeight: 1.3 }}>
+                        <span className="block" style={{ fontSize: 12.5, fontWeight: 500 }}>{t(`nav.${item.key}`)}</span>
+                        <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{t(`nav.${item.key}Sub`)}</span>
+                      </span>
+                      {item.to === '/reminders' && reminderCount > 0 && (
+                        <span className="num" aria-label={t('layout.remindersActive', { n: reminderCount })}
+                          style={{ marginLeft: 'auto', flex: 'none', minWidth: 18, height: 18, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, borderRadius: 'var(--radius-pill)', background: 'var(--status-watch)', color: 'var(--text-inverse)' }}>
+                          {reminderCount}
+                        </span>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+                </NavLink>
+              ))}
+            </nav>
+          </>
+        )}
 
         <div className="mt-auto relative" style={{ paddingTop: 12 }}>
           {siteMenuOpen && (
             <div role="listbox" aria-label={t('layout.chooseSite')}
               style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 6, boxShadow: '0 12px 40px -8px rgba(0,0,0,.5)', zIndex: 20 }}>
+              <button type="button" role="option" aria-selected={isGlobal} onClick={goGlobal}
+                className="flex items-center gap-2 w-full"
+                style={{ padding: '9px 10px', borderRadius: 8, border: 'none', textAlign: 'left', background: isGlobal ? 'var(--accent-soft)' : 'transparent', color: 'var(--text)', cursor: 'pointer' }}>
+                <span style={{ display: 'flex', flex: 'none', color: 'var(--accent)' }}><GlobeIcon /></span>
+                <span style={{ lineHeight: 1.25, flex: 1 }}>
+                  <span className="block" style={{ fontSize: 12, fontWeight: 500 }}>{t('global.option')}</span>
+                  <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{t('global.sub', { n: SITES.length })}</span>
+                </span>
+              </button>
+              <div style={{ height: 1, background: 'var(--hairline)', margin: '5px 6px' }} aria-hidden="true" />
               {SITES.map((s) => (
-                <button key={s.id} type="button" role="option" aria-selected={s.id === siteId}
-                  onClick={() => { setSiteId(s.id); setSiteMenuOpen(false) }}
+                <button key={s.id} type="button" role="option" aria-selected={view === s.id}
+                  onClick={() => enterSite(s.id)}
                   className="flex items-center gap-2 w-full"
-                  style={{ padding: '9px 10px', borderRadius: 8, border: 'none', textAlign: 'left', background: s.id === siteId ? 'var(--accent-soft)' : 'transparent', color: 'var(--text)', cursor: 'pointer' }}>
+                  style={{ padding: '9px 10px', borderRadius: 8, border: 'none', textAlign: 'left', background: view === s.id ? 'var(--accent-soft)' : 'transparent', color: 'var(--text)', cursor: 'pointer' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: s.connected ? 'var(--status-healthy)' : 'var(--text-muted)' }} aria-hidden="true" />
                   <span style={{ lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                     <span className="block" style={{ fontSize: 12, fontWeight: 500 }}>{s.name}</span>
@@ -147,11 +164,14 @@ export default function AppLayout() {
           )}
 
           <button type="button" onClick={() => setSiteMenuOpen((v) => !v)} style={footerControl}
-            aria-haspopup="listbox" aria-expanded={siteMenuOpen} aria-label={t('layout.siteActive', { name: site.name })}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: site.connected ? 'var(--status-healthy)' : 'var(--text-muted)', flex: 'none' }} aria-hidden="true" />
+            aria-haspopup="listbox" aria-expanded={siteMenuOpen}
+            aria-label={isGlobal ? t('global.title') : t('layout.siteActive', { name: site.name })}>
+            <span style={{ display: 'flex', flex: 'none', color: isGlobal ? 'var(--accent)' : (site.connected ? 'var(--status-healthy)' : 'var(--text-muted)') }}>
+              {isGlobal ? <GlobeIcon /> : <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} aria-hidden="true" />}
+            </span>
             <span style={{ lineHeight: 1.25, flex: 1, minWidth: 0 }}>
-              <span className="block" style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{site.name}</span>
-              <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 'var(--tracking-wide)' }}>{site.operator} · {t('common.units', { n: site.assets })}</span>
+              <span className="block" style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isGlobal ? t('global.title') : site.name}</span>
+              <span className="num block" style={{ fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 'var(--tracking-wide)' }}>{isGlobal ? t('global.sub', { n: SITES.length }) : `${site.operator} · ${t('common.units', { n: site.assets })}`}</span>
             </span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', color: 'var(--text-muted)', transform: siteMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-fast)' }} aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
@@ -162,7 +182,7 @@ export default function AppLayout() {
 
       {/* ---- Main ---- */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3" style={{ height: 66, flex: 'none', padding: '0 20px', borderBottom: '1px solid var(--border)' }}>
+        <header className="flex items-center gap-3" style={{ height: 66, flex: 'none', padding: '0 16px', borderBottom: '1px solid var(--border)' }}>
           <button className="app-menu-btn" onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? t('layout.closeMenu') : t('layout.openMenu')} aria-expanded={menuOpen}
             style={{ width: 38, height: 38, flex: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}>
@@ -170,15 +190,16 @@ export default function AppLayout() {
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
-          <div>
-            <h1 style={{ fontSize: 18, fontWeight: 'var(--fw-semibold)', letterSpacing: 'var(--tracking-tight)' }}>{t(`nav.${currentNav.key}`)}</h1>
-            <div className="num" style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-muted)', marginTop: 2, textTransform: 'uppercase' }}>
-              {t(`nav.${currentNav.key}Sub`)} — {site.name}
+          <div className="min-w-0">
+            <h1 style={{ fontSize: 18, fontWeight: 'var(--fw-semibold)', letterSpacing: 'var(--tracking-tight)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {isGlobal ? t('global.title') : t(`nav.${currentNav.key}`)}
+            </h1>
+            <div className="num" style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-muted)', marginTop: 2, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {isGlobal ? t('global.sub', { n: SITES.length }) : `${t(`nav.${currentNav.key}Sub`)} — ${site.name}`}
             </div>
           </div>
 
-          <div className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
-            {/* Sélecteur de langue */}
+          <div className="flex items-center gap-2" style={{ marginLeft: 'auto', flex: 'none' }}>
             <div className="num flex" role="group" aria-label={t('layout.changeLanguage')}
               style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
               {LANGS.map((l) => (
@@ -189,18 +210,19 @@ export default function AppLayout() {
               ))}
             </div>
 
-            {/* Bascule thème */}
             <button type="button" onClick={toggleTheme} className="flex items-center"
-              style={{ flex: 'none', gap: 8, height: 38, padding: '0 13px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}
+              style={{ flex: 'none', gap: 8, height: 38, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}
               aria-label={isLight ? t('layout.toDark') : t('layout.toLight')} aria-pressed={isLight} title={isLight ? t('layout.toDark') : t('layout.toLight')}>
               <span style={{ display: 'flex', color: 'var(--accent)' }}>{isLight ? <MoonIcon /> : <SunIcon />}</span>
-              <span className="num" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--tracking-wide)' }}>{isLight ? t('layout.light') : t('layout.dark')}</span>
+              <span className="num hide-sm" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--tracking-wide)' }}>{isLight ? t('layout.light') : t('layout.dark')}</span>
             </button>
           </div>
         </header>
 
         <main className="app-main min-w-0 flex-1 overflow-y-auto">
-          {site.connected ? (
+          {isGlobal ? (
+            <GlobalView onSelectSite={enterSite} />
+          ) : site.connected ? (
             <Outlet />
           ) : (
             <div className="flex flex-col items-center justify-center gap-3" style={{ minHeight: '60%', textAlign: 'center', padding: 24 }}>
@@ -208,6 +230,10 @@ export default function AppLayout() {
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', maxWidth: 440, lineHeight: 1.55 }}>
                 {t('layout.siteComingBody', { operator: site.operator, assets: site.assets })}
               </p>
+              <button type="button" onClick={goGlobal} className="num"
+                style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent-hover)', cursor: 'pointer' }}>
+                ‹ {t('global.backToGlobal')}
+              </button>
             </div>
           )}
         </main>

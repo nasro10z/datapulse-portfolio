@@ -81,6 +81,14 @@ const DICT = {
     },
     status: { healthy: 'Sain', watch: 'À surveiller', critical: 'Critique', alert: 'Alerte', info: 'Info', warning: 'Alerte' },
     trend: { up: 'en hausse', stable: 'stable', down: 'en baisse', label: 'Tendance : {t}' },
+    global: {
+      title: 'Vue globale', sub: '{n} sites · réseau TelcoNet', option: 'Vue globale',
+      fleetScore: 'Score de flotte', totalAssets: 'Actifs surveillés', anomalies7d: 'Anomalies (7 j)', soonestPm: 'PM la plus proche',
+      ranking: 'Classement des sites', rankingSub: 'Du plus à risque au plus sain',
+      insight: '{site} présente la santé de flotte la plus basse et la maintenance planifiée la plus proche — à prioriser.',
+      topFault: 'Défaut principal', pmIn: 'PM dans {n} j', anoms: '{n} anomalies / 7 j',
+      openSite: 'Ouvrir le site', backToGlobal: 'Retour à la vue globale', demoNote: 'Données de démonstration',
+    },
   },
   en: {
     common: {
@@ -157,6 +165,14 @@ const DICT = {
     },
     status: { healthy: 'Healthy', watch: 'Watch', critical: 'Critical', alert: 'Alert', info: 'Info', warning: 'Warning' },
     trend: { up: 'rising', stable: 'stable', down: 'falling', label: 'Trend: {t}' },
+    global: {
+      title: 'Global view', sub: '{n} sites · TelcoNet network', option: 'Global view',
+      fleetScore: 'Fleet score', totalAssets: 'Monitored assets', anomalies7d: 'Anomalies (7d)', soonestPm: 'Nearest PM',
+      ranking: 'Site ranking', rankingSub: 'From most at-risk to healthiest',
+      insight: '{site} has the lowest fleet health and the nearest scheduled maintenance — prioritize it.',
+      topFault: 'Top fault', pmIn: 'PM in {n}d', anoms: '{n} anomalies / 7d',
+      openSite: 'Open site', backToGlobal: 'Back to global view', demoNote: 'Demonstration data',
+    },
   },
 }
 
