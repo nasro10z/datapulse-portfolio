@@ -4,6 +4,25 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 3 — 2026-07-26 (suite) — Refonte UI (Recharts / Lucide / Framer Motion)
+
+**Demande** : rapprocher le dashboard du design de référence (captures + `DataPulse - Identity v2 (standalone).html`) : sidebar persistante slate foncé, canvas clair, cartes blanches surélevées, charts Recharts, icônes Lucide, animations Framer Motion.
+
+### Réalisations
+- **Référence** : `docs/ui-reference.md` (specs extraites du HTML + description des 10 captures) et dossier `docs/screenshots/` (à remplir avec les PNG). Données/couleurs exactes extraites du HTML : statuts feutrés **Sain #3FA69C · Surveillance #B8823E · Critique #C1443B**, seuils `≥82 / ≥68`, sous-scores pondérés (Env 87/30%, Énergie 81/25%, Batterie 66/25%, Alarmes 90/20% → **81**).
+- **Librairies** : `recharts`, `lucide-react`, `framer-motion` installées.
+- **Layout & profondeur** (global, toutes pages) : conteneur `flex flex-row`, **sidebar persistante** (desktop) en **slate foncé** (`--sidebar-*`, `#171C29`), tiroir sur mobile ≤768px ; canvas **gris clair `#F3F4F6`** ; cartes **blanches surélevées** (`--shadow-card`, `rounded-lg`). Thème **clair par défaut**. Icônes **Lucide** dans la nav + header ; horloge « SYNCHRONISÉ · HH:MM ».
+- **Page Santé du site refaite** (`pages/SiteHealth.jsx` + `siteHealthData.js`) avec **Recharts** (courbe d'évolution multi-lignes 7j/30j/90j, barres de résumé des sous-scores colorées par statut, **jauges radiales** par sous-score, sparklines par famille) et **Framer Motion** (fade-in + slide-up à l'entrée, scale au survol). Données/couleurs exactes de la référence.
+
+### Validation
+- `npm run build` OK (2814 modules ; bundle ~243 KB gzip — Recharts/Framer). `npm test` **9/9** (tests useTheme mis à jour pour le défaut clair).
+- Navigateur : sidebar `#171C29` persistante (position static, flex-row), canvas `#F3F4F6`, cartes blanches + ombre, **10 surfaces Recharts** rendues, couleurs de statut correctes (env teal / énergie or / batterie rouge), 10 cartes animées. Les 4 autres pages héritent du nouveau shell sans débordement.
+
+### En suspens
+- Conversion des pages **Forecast / Anomalies / Maintenance / Rappels** en Recharts + Lucide + Framer Motion (elles héritent déjà du nouveau layout/cartes mais gardent les charts SVG maison). Page « Aperçu » dédiée (comme la référence) optionnelle. Les captures PNG restent à déposer dans `docs/screenshots/`.
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Vue globale + responsive mobile
 
 **Demandes** : (1) vue globale de tous les sites, puis personnalisation au site sélectionné ; (2) rendre l'ensemble mobile-friendly.
