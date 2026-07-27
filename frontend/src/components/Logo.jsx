@@ -19,39 +19,26 @@ export function LogoMark({ size = 22, accent = 'var(--accent)' }) {
   )
 }
 
-export default function Logo() {
+export default function Logo({
+  mutedColor = 'var(--text-muted)',
+  boxBg = 'var(--surface-2)',
+  boxBorder = 'var(--border)',
+}) {
   return (
     <div className="flex items-center gap-3">
       <div
         className="flex items-center justify-center"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border)',
-        }}
+        style={{ width: 36, height: 36, borderRadius: 10, background: boxBg, border: `1px solid ${boxBorder}` }}
       >
         <LogoMark />
       </div>
       <div style={{ lineHeight: 1 }}>
-        <div
-          style={{
-            fontSize: 16,
-            fontWeight: 'var(--fw-semibold)',
-            letterSpacing: 'var(--tracking-tight)',
-          }}
-        >
+        <div style={{ fontSize: 16, fontWeight: 'var(--fw-semibold)', letterSpacing: 'var(--tracking-tight)' }}>
           DataPulse
         </div>
         <div
           className="num"
-          style={{
-            fontSize: 9.5,
-            letterSpacing: 'var(--tracking-caps)',
-            color: 'var(--text-muted)',
-            marginTop: 3,
-          }}
+          style={{ fontSize: 9.5, letterSpacing: 'var(--tracking-caps)', color: mutedColor, marginTop: 3 }}
         >
           OPS PRÉDICTIVES
         </div>

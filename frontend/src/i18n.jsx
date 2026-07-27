@@ -32,12 +32,14 @@ const DICT = {
       chooseSite: 'Choisir un site', demo: 'DÉMO',
       siteComingTitle: '{name} — intégration à venir',
       siteComingBody: 'Ce site fait partie du réseau {operator} ({assets} actifs) mais n’est pas encore branché au pipeline de données. Sélectionnez MSC-10 pour la démonstration.',
-      remindersActive: '{n} rappel(s) actif(s)',
+      remindersActive: '{n} rappel(s) actif(s)', synced: 'SYNCHRONISÉ',
     },
     siteHealth: {
-      title: 'Health score du site', subtitle: 'Score agrégé — {site}',
+      title: 'Santé globale du site', subtitle: 'Score agrégé — {site}',
       scoreGlobal: 'Score global',
       decision: 'Couche d’aide à la décision : ce score synthétise l’état des familles d’équipement, il ne déclenche aucune action automatique.',
+      summary: 'Résumé des sous-scores', evolution: 'Évolution du score par sous-score',
+      weight: 'Poids', detail: 'Détail des sous-scores', byFamily: 'Par famille d’équipement',
     },
     forecast: {
       title: 'Global Health Score', subtitle: 'Historique + prévision — horizon {h}',
@@ -116,12 +118,14 @@ const DICT = {
       chooseSite: 'Choose a site', demo: 'DEMO',
       siteComingTitle: '{name} — integration coming soon',
       siteComingBody: 'This site belongs to the {operator} network ({assets} assets) but is not yet connected to the data pipeline. Select MSC-10 for the demo.',
-      remindersActive: '{n} active reminder(s)',
+      remindersActive: '{n} active reminder(s)', synced: 'SYNCED',
     },
     siteHealth: {
-      title: 'Site health score', subtitle: 'Aggregate score — {site}',
+      title: 'Overall site health', subtitle: 'Aggregate score — {site}',
       scoreGlobal: 'Global score',
       decision: 'Decision-support layer: this score summarizes the state of the equipment families; it triggers no automatic action.',
+      summary: 'Sub-score summary', evolution: 'Score evolution by sub-score',
+      weight: 'Weight', detail: 'Sub-score detail', byFamily: 'By equipment family',
     },
     forecast: {
       title: 'Global Health Score', subtitle: 'History + forecast — {h} horizon',

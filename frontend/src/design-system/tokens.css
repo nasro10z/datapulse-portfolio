@@ -164,6 +164,24 @@
   --grid-line: rgba(255, 255, 255, .045);
   --grid-size: 32px;
 
+  /* Statuts feutrés (charts / badges) — extraits de Identity v2 */
+  --chart-healthy: #3FA69C;
+  --chart-watch:   #B8823E;
+  --chart-critical:#C1443B;
+
+  /* Ombres de carte (élévation) */
+  --shadow-card:       0 1px 2px rgba(16, 24, 40, .06), 0 4px 16px -6px rgba(16, 24, 40, .10);
+  --shadow-card-hover: 0 2px 6px rgba(16, 24, 40, .08), 0 14px 34px -10px rgba(16, 24, 40, .18);
+
+  /* Sidebar — toujours slate foncé (indépendant du thème) */
+  --sidebar-bg:      #171C29;
+  --sidebar-surface: #1F2637;
+  --sidebar-text:    #E8ECF3;
+  --sidebar-muted:   #8A94A8;
+  --sidebar-border:  rgba(255, 255, 255, .08);
+  --sidebar-active:  rgba(63, 166, 156, .16);
+  --sidebar-active-text: #FFFFFF;
+
   /* ---- Sémantique surface / texte — thème sombre (défaut) ---- */
   --bg: var(--ink-900);
   --bg-elevated: var(--ink-850);
@@ -181,11 +199,11 @@
 }
 
 [data-theme="light"] {
-  --bg: var(--white);
-  --bg-elevated: var(--slate-50);
-  --surface: var(--white);
+  --bg: #F3F4F6;               /* canvas gris clair */
+  --bg-elevated: var(--white);
+  --surface: var(--white);     /* cartes blanches surélevées */
   --surface-2: var(--slate-100);
-  --surface-inset: var(--slate-100);
+  --surface-inset: #EEF1F5;
   --text: var(--ink-900);
   --text-muted: var(--slate-500);
   --text-subtle: var(--slate-500);

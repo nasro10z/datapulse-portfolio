@@ -7,6 +7,7 @@ export default function Panel({ title, subtitle, actions, children, className = 
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-card)',
         padding: 'var(--space-5)',
         ...style,
       }}
