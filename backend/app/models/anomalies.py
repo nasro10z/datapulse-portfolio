@@ -38,30 +38,6 @@ class AnomalyEpisode(BaseModel):
     status: AnomalyStatus
 
 
-class HistogramBucket(str, Enum):
-    day = "day"
-    week = "week"
-    month = "month"
-
-
-class HistogramBin(BaseModel):
-    """Un intervalle de temps et le nombre d'épisodes qui y démarrent."""
-
-    period_start: datetime
-    total: int
-    alert: int
-    critical: int
-
-
-class HistogramResponse(BaseModel):
-    bucket: HistogramBucket
-    bins: list[HistogramBin]
-
-
-class StatusUpdate(BaseModel):
-    status: AnomalyStatus
-
-
 class AnomalyStats(BaseModel):
     total: int
     anomaly_rate_pct: float

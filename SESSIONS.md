@@ -4,7 +4,6 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
-<<<<<<< HEAD
 ## Session 3 — 2026-07-26 (suite) — Vue globale + responsive mobile
 
 **Demandes** : (1) vue globale de tous les sites, puis personnalisation au site sélectionné ; (2) rendre l'ensemble mobile-friendly.
@@ -179,60 +178,6 @@ Revue complète du codebase : Phases 3 et 4 constatées déjà réalisées en Ph
 ### En suspens
 - Endpoints d'écriture restants pour Phases 5–7 : `PATCH /anomalies/{id}` (acquitter/résoudre), `PATCH`/`DELETE /maintenance/schedule/{id}`, snooze/acquittement reminders — l'acquittement d'anomalie devra coexister avec la dérivation des reminders (sinon un reminder disparaît sans trace de snooze).
 - Contenu Phase 5 (histogramme, filtres UI, répartitions by_type/by_severity déjà servies par le backend), Phase 6 (vue calendrier + édition/suppression), Phase 7 (snooze + badge compteur nav).
-=======
-## Session 4 — 2026-07-25
-
-**Phases couvertes** : Phase 5 (Anomaly Detection) — terminée. Phases 3 et 4 cochées rétroactivement (livrées en Session 2).
-
-### Réalisations
-- **Backend — premiers endpoints d'écriture** :
-  - `GET /api/anomalies/histogram?bucket=day|week|month` → intervalles contigus (creux inclus) avec `total` / `alert` / `critical`.
-  - `PATCH /api/anomalies/{id}` `{status}` → met à jour le statut d'un épisode, 404 si inconnu, 422 si statut invalide.
-  - Modèles `HistogramBucket`, `HistogramBin`, `HistogramResponse`, `StatusUpdate`.
-- **Frontend** :
-  - `AnomalyHistogram` (barres empilées par sévérité, sélecteur jour/semaine/mois, tooltip, légende).
-  - Actions **Acquitter / Résoudre** par ligne, désactivées selon le statut courant, avec rechargement et remontée d'erreur.
-  - `SegmentedControl` extrait et réutilisé par le sélecteur d'horizon du Forecast (les deux contrôles étaient dupliqués).
-
-### Décisions
-- **Intervalles vides renvoyés à zéro** par l'histogramme : sans eux, une période calme serait indiscernable d'une absence de mesure.
-- **État des statuts en mémoire** côté mock (repart à zéro au redémarrage du serveur) — la persistance viendra avec le branchement réel en Phase 8.
-- Granularité **semaine** nettement plus lisible que **jour** sur une fenêtre de 60 jours ; `jour` reste la valeur par défaut, conformément à la ROADMAP.
-
-### Validation
-- `pytest tests/` : **20/20 verts** (14 existants + 6 nouveaux : histogramme × 3 granularités, bucket invalide → 422, mise à jour de statut, 404/422).
-- `npm run build` OK.
-- Vérification navigateur dans les deux thèmes : histogramme (jour + semaine), et aller-retour complet d'une action « Résoudre » (PATCH → rechargement → ligne passée à « Résolue », boutons désactivés).
-
-### En suspens
-- Phase 6 (calendrier dominant + édition/suppression) et Phase 7 (snooze/acquittement des rappels, badge compteur) : mêmes prérequis backend — endpoints d'écriture `DELETE`/`PATCH` sur `maintenance/calendar` et `reminders`.
-- Code-splitting du bundle Recharts (662 kB).
-
----
-
-## Session 3 — 2026-07-25
-
-**Phases couvertes** : consolidation design (hors ROADMAP, demandée avant les phases 5–7) — thème clair/sombre + passage des graphiques sur Recharts.
-
-### Réalisations
-- **Thème clair/sombre complet** : `ThemeContext` (provider + hook), bouton bascule dans la topbar, persistance `localStorage`, suivi de `prefers-color-scheme` tant que l'utilisateur n'a pas choisi, `color-scheme` posé sur `<html>` pour aligner les contrôles natifs (date picker, select, scrollbars).
-- **Tokens light complétés** : accents et statuts re-échelonnés pour le fond blanc (les pas clairs ne tenaient pas 4.5:1 en 10px), + tokens dataviz par thème (`--chart-grid`, `--chart-axis`, `--chart-track`).
-- **Recharts** : `TrendChart` reconstruit (ComposedChart — bande de confiance empilée limitée à la prévision, historique plein / prévision pointillée, légende, tooltip custom, marqueurs de franchissement) ; `HealthGauge` en RadialBarChart ; nouveau `DistributionChart` (barres horizontales) branché sur `by_type` / `by_severity` / `by_direction` déjà exposés par `/api/anomalies/stats`.
-
-### Décisions
-- **Répartitions en teinte unique + libellés d'axe** plutôt qu'une palette catégorielle : blue/violet échouent le seuil de séparation (ΔE 11.1 en vision normale, 1.9 en protanopie). Les couleurs de statut réservées ne servent que pour la sévérité, qui *est* un statut.
-- **Domaine Y explicite** sur le forecast : l'auto-domaine de Recharts repart de 0 à cause de la bande empilée et écrasait la courbe.
-- **`react-router-dom` maintenu en 7.18.x** malgré 2 alertes `npm audit` (GHSA-qwww-vcr4-c8h2, CSRF en mode RSC) : aucune version corrigée n'existe au-dessus, et redescendre en 7.11 expose 14 advisories. L'app est une SPA cliente sans RSC ni server actions — non exposée. À revoir quand un correctif sort.
-- Statuts light vérifiés : healthy #0F7A57 (5.33:1), watch #9A6510 (4.95:1), critical #C1443B (5.05:1) sur blanc.
-
-### Validation
-- `npm run build` OK. Bundle 657 kB (Recharts) — avertissement de taille Vite, code-splitting à envisager en Phase 10.
-- Vérification navigateur des 5 pages **dans les deux thèmes**.
-
-### En suspens
-- Reprise de la ROADMAP en Phase 5 (Anomalies) : histogramme temporel + actions acquitter/résoudre — nécessite d'abord les endpoints d'écriture côté backend (`PATCH /api/anomalies/{id}`, snooze reminders, suppression d'entrée calendrier), absents de la Phase 1.
-- Code-splitting du bundle Recharts.
->>>>>>> b9028691a7679fd48982e990d9e01752e3b0c38a
 
 ---
 

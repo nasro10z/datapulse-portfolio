@@ -178,12 +178,6 @@
   --border: rgba(255, 255, 255, .09);
   --border-strong: rgba(255, 255, 255, .16);
   --hairline: rgba(255, 255, 255, .055);
-
-  /* Tokens dataviz dépendants du thème */
-  --chart-grid: rgba(255, 255, 255, .07);
-  --chart-axis: var(--slate-400);
-  --chart-band-opacity: 0.18;
-  --chart-track: var(--ink-700);
 }
 
 [data-theme="light"] {
@@ -201,28 +195,4 @@
   --hairline: rgba(10, 13, 22, .06);
   --grid-line: rgba(10, 13, 22, .045);
   --gradient-ink: radial-gradient(120% 120% at 0% 0%, #FFFFFF 0%, #EEF2F8 60%, #E7ECF4 100%);
-
-  /* Accents : les pas clairs manquent de contraste sur blanc — on descend
-     d'un cran dans chaque rampe pour tenir 4.5:1 sur le texte coloré. */
-  --accent: var(--blue-600);
-  --accent-hover: var(--blue-500);
-  --accent-press: var(--blue-700);
-  --accent-soft: rgba(47, 107, 255, .10);
-  --success: var(--green-600);
-  --growth: var(--green-600);
-  --danger: var(--red-500);
-
-  /* Pas assombris : les badges sont en 10px, il faut 4.5:1 sur blanc.
-     Vérifiés — healthy 5.33, watch 4.95, critical 5.05. */
-  --status-healthy: #0F7A57;
-  --status-healthy-soft: rgba(20, 154, 110, .12);
-  --status-watch: #9A6510;
-  --status-watch-soft: rgba(245, 165, 36, .18);
-  --status-critical: #C1443B;
-  --status-critical-soft: rgba(240, 72, 62, .10);
-
-  --chart-grid: rgba(10, 13, 22, .08);
-  --chart-axis: var(--slate-500);
-  --chart-band-opacity: 0.16;
-  --chart-track: var(--slate-200);
 }
