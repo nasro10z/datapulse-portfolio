@@ -9,7 +9,7 @@ vi.mock('../../api/client', () => ({
   api: {
     anomalyStats: vi.fn(),
     anomalies: vi.fn(),
-    anomalyHistogram: vi.fn(),
+    anomalyWindowStats: vi.fn(),
     updateAnomalyStatus: vi.fn(),
   },
 }))
@@ -17,6 +17,7 @@ vi.mock('../../api/client', () => ({
 const openEpisode = {
   id: 'EP-0001', equipment: 'STULZ-08', type: 'sequence', severity: 'critical',
   direction: 'high', start: '2026-07-25T17:41:00Z', duration_min: 25, peak_value: 31.2, status: 'open',
+  dimension: 'environment',
 }
 
 const stats = {
@@ -28,15 +29,21 @@ const stats = {
   top_equipment: 'STULZ-08', top_equipment_count: 1,
 }
 
+const windowStats = {
+  window: '24h', total: 1, previous_total: 0, rate_pct: 1.5,
+  top_family: 'stulz', top_family_count: 1,
+  by_dimension: { environment: 1, scada: 0 },
+}
+
 beforeEach(() => {
   api.anomalyStats.mockResolvedValue(stats)
   api.anomalies.mockResolvedValue([openEpisode])
-  api.anomalyHistogram.mockResolvedValue({ bucket: 'day', bins: [] })
+  api.anomalyWindowStats.mockImplementation((w) => Promise.resolve({ ...windowStats, window: w }))
   api.updateAnomalyStatus.mockResolvedValue({ ...openEpisode, status: 'acknowledged' })
 })
 
 describe('Parcours : consulter et acquitter une anomalie', () => {
-  it('affiche les stats et un épisode', async () => {
+  it('affiche le KPI de fenêtre et un épisode', async () => {
     render(<Anomalies />)
     expect(await screen.findByText('Total anomalies')).toBeInTheDocument()
     // STULZ-08 apparaît dans la ligne du tableau et dans le filtre équipement
@@ -63,5 +70,14 @@ describe('Parcours : consulter et acquitter une anomalie', () => {
     await waitFor(() =>
       expect(api.anomalies).toHaveBeenCalledWith(expect.objectContaining({ severity: 'critical' })),
     )
+  })
+
+  it('recharge au changement de fenêtre 24h/7j', async () => {
+    const user = userEvent.setup()
+    render(<Anomalies />)
+    await screen.findByText('STULZ-08')
+    expect(api.anomalyWindowStats).toHaveBeenCalledWith('24h')
+    await user.click(screen.getByRole('button', { name: '7 jours' }))
+    await waitFor(() => expect(api.anomalyWindowStats).toHaveBeenCalledWith('7d'))
   })
 })

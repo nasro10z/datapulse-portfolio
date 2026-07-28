@@ -15,6 +15,8 @@ class ScheduleRequest(BaseModel):
     last_pm_date: date
     period_value: int = Field(gt=0)
     period_unit: PeriodUnit
+    assigned_to: str | None = None
+    notes: str | None = None
 
 
 class CalendarEntry(BaseModel):
@@ -25,3 +27,5 @@ class CalendarEntry(BaseModel):
     period_unit: PeriodUnit
     next_pm_date: date
     days_remaining: int
+    assigned_to: str | None = None
+    notes: str | None = None

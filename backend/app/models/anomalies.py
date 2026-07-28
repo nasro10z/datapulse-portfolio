@@ -26,6 +26,16 @@ class AnomalyStatus(str, Enum):
     resolved = "resolved"
 
 
+class AnomalyDimension(str, Enum):
+    """Modèle de détection à l'origine de l'épisode — `environment` (HMM
+    temp/humidité, capteur salle) ou `scada` (IsolationForest, alarmes UPS/CLIM/
+    ENERGY). Distinct de l'équipement/famille concerné : les deux modèles
+    peuvent en principe toucher le même équipement (ex. CLIM via alarme SCADA)."""
+
+    environment = "environment"
+    scada = "scada"
+
+
 class AnomalyEpisode(BaseModel):
     id: str
     equipment: str
@@ -36,6 +46,9 @@ class AnomalyEpisode(BaseModel):
     duration_min: float = Field(gt=0)
     peak_value: float
     status: AnomalyStatus
+    # Défaut = environment : seul le pipeline HMM environnemental est branché à
+    # ce jour (cf. app/ml/README.md) — aucune anomalie SCADA n'existe encore.
+    dimension: AnomalyDimension = AnomalyDimension.environment
 
 
 class AnomalyStats(BaseModel):
@@ -70,3 +83,23 @@ class HistogramBin(BaseModel):
 class AnomalyHistogram(BaseModel):
     bucket: HistogramBucket
     bins: list[HistogramBin]
+
+
+class AnomalyWindow(str, Enum):
+    h24 = "24h"
+    d7 = "7d"
+
+
+class WindowStats(BaseModel):
+    """Stats bornées à une fenêtre glissante (24h/7j) — pour le KPI d'ouverture
+    de la page Anomalies : total + tendance vs la période précédente de même
+    durée, taux sur la fenêtre, famille la plus contributrice, et répartition
+    par dimension de détection."""
+
+    window: AnomalyWindow
+    total: int
+    previous_total: int
+    rate_pct: float
+    top_family: str | None = None
+    top_family_count: int = 0
+    by_dimension: dict[AnomalyDimension, int]

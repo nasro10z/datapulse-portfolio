@@ -10,6 +10,9 @@ import TrendChart from '../components/TrendChart'
 const HORIZONS = ['24h', '7d', '30d']
 const HORIZON_KEY = { '24h': 'h24', '7d': 'd7', '30d': 'd30' }
 const FAMILY_COLOR = { stulz: 'var(--viz-2)', socomec: 'var(--viz-4)', yanan: 'var(--viz-3)' }
+// Présentation « par domaine » (environnement/énergie/batterie) des scores par
+// famille d'équipement — mêmes données (STULZ/SOCOMEC/YANAN), libellé différent.
+const FAMILY_DOMAIN_LABEL_KEY = { stulz: 'domainEnvironment', socomec: 'domainEnergy', yanan: 'domainBattery' }
 
 export default function Forecast() {
   const [horizon, setHorizon] = useState('24h')
@@ -64,7 +67,7 @@ export default function Forecast() {
                   style={{ background: 'var(--surface-inset)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{f.label}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t(`siteHealth.${FAMILY_DOMAIN_LABEL_KEY[f.family]}`)}</div>
                     {f.severity ? (
                       <StatusBadge status={f.severity} />
                     ) : (
@@ -132,7 +135,7 @@ export default function Forecast() {
                     borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', padding: 'var(--space-4)',
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{t(`siteHealth.${FAMILY_DOMAIN_LABEL_KEY[s.family]}`)}</div>
                   <TrendChart points={s.points} color={FAMILY_COLOR[s.family]} />
                 </div>
               ))}

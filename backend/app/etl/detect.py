@@ -19,6 +19,8 @@ par l'état HMM — à confirmer) :
   - **equipment** = `SALLE_SWITCH` (granularité salle).
   - **status** par ancienneté (`resolved` >72 h, `acknowledged` >24 h, sinon `open`).
   - **id** = `EP-{n:04d}` par ordre chronologique (stable sur données figées).
+  - **dimension** = `environment` (seul le pipeline HMM est branché ; `scada`
+    viendra avec l'ingestion des CSV SCADA, cf. `models/anomalies.AnomalyDimension`).
 
     python -m app.etl.detect   (depuis backend/, PYTHONPATH=.)
 """
@@ -34,7 +36,14 @@ from app.ml.environmental.config import (
     SCALER_PATH, TEMP_COL, THRESHOLDS_PATH,
 )
 from app.ml.environmental.preprocessing import compute_rolling_features, prepare_hmm_sequences
-from app.models.anomalies import AnomalyEpisode, AnomalyStatus, AnomalyType, Direction, Severity
+from app.models.anomalies import (
+    AnomalyDimension,
+    AnomalyEpisode,
+    AnomalyStatus,
+    AnomalyType,
+    Direction,
+    Severity,
+)
 from app.storage.analytics_db import get_analytics_sessionmaker, init_analytics_db
 from app.storage.repositories import gold_repo, silver_repo
 
@@ -117,7 +126,7 @@ def run_hmm_episodes(silver: pd.DataFrame) -> list[AnomalyEpisode]:
             id=f"EP-{i:04d}", equipment=ROOM, type=AnomalyType.collective,
             severity=c["severity"], direction=c["direction"], start=c["start"],
             duration_min=c["duration_min"], peak_value=c["peak"],
-            status=_status_for(c["start"], now),
+            status=_status_for(c["start"], now), dimension=AnomalyDimension.environment,
         )
         for i, c in enumerate(cands, 1)
     ]

@@ -2,10 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.app_db import get_session
+from app.mocks.equipment import ALL_UNITS
 from app.models.maintenance import CalendarEntry, ScheduleRequest
 from app.services import maintenance as maintenance_service
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
+
+
+@router.get("/equipment", response_model=list[str])
+def list_equipment() -> list[str]:
+    """Parc réel du site — pour peupler le sélecteur d'équipement du formulaire."""
+    return ALL_UNITS
 
 
 @router.post("/schedule", response_model=CalendarEntry, status_code=201)

@@ -1,12 +1,17 @@
 import { useMemo, useState } from 'react'
+import { PieChart, Pie, Cell, Legend, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts'
+import { TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { api } from '../api/client'
 import useApi, { ApiState } from '../hooks/useApi'
 import { useLang } from '../i18n'
 import Panel from '../components/Panel'
 import StatusBadge from '../components/StatusBadge'
-import AnomalyHistogram from '../components/AnomalyHistogram'
 
-const BUCKETS = ['day', 'week', 'month']
+const WINDOWS = ['24h', '7d']
+const WINDOW_KEY = { '24h': 'w24h', '7d': 'w7d' }
+const FAMILY_LABEL_KEY = { stulz: 'familyStulz', socomec: 'familySocomec', yanan: 'familyYanan' }
+const DIM_LABEL_KEY = { environment: 'dimEnvironment', scada: 'dimScada' }
+const DIM_COLOR = { environment: 'var(--viz-1)', scada: 'var(--viz-4)' }
 
 const selectStyle = {
   background: 'var(--surface-inset)',
@@ -17,7 +22,7 @@ const selectStyle = {
   padding: '6px 9px',
 }
 
-function Stat({ label, value, suffix }) {
+function Stat({ label, value, suffix, children }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
       <div className="num" style={{ fontSize: 10, letterSpacing: 'var(--tracking-caps)', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
@@ -27,7 +32,20 @@ function Stat({ label, value, suffix }) {
         {value}
         {suffix && <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}> {suffix}</span>}
       </div>
+      {children && <div style={{ marginTop: 6 }}>{children}</div>}
     </div>
+  )
+}
+
+/** Delta d'anomalies vs période précédente — plus d'anomalies = pire (inverse du sens santé). */
+function AnomalyTrend({ current, previous, label }) {
+  const delta = current - previous
+  const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
+  const color = delta > 0 ? 'var(--chart-critical)' : delta < 0 ? 'var(--chart-healthy)' : 'var(--text-muted)'
+  return (
+    <span className="num flex items-center gap-1" style={{ fontSize: 12, color }}>
+      <Icon size={13} /> {delta > 0 ? '+' : ''}{delta} {label}
+    </span>
   )
 }
 
@@ -37,13 +55,15 @@ function Distribution({ title, data, labels, color = 'var(--viz-1)' }) {
   const max = Math.max(1, ...entries.map(([, v]) => v))
   return (
     <div>
-      <div className="num" style={{ fontSize: 10, letterSpacing: 'var(--tracking-caps)', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
-        {title}
-      </div>
+      {title && (
+        <div className="num" style={{ fontSize: 10, letterSpacing: 'var(--tracking-caps)', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
+          {title}
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         {entries.map(([k, v]) => (
           <div key={k} className="flex items-center gap-3">
-            <span style={{ fontSize: 12, width: 88, flex: 'none', color: 'var(--text-muted)' }}>{labels[k] ?? k}</span>
+            <span style={{ fontSize: 12, width: 160, flex: 'none', color: 'var(--text-muted)' }}>{labels[k] ?? k}</span>
             <div style={{ flex: 1, height: 8, background: 'var(--surface-inset)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
               <div style={{ width: `${(v / max) * 100}%`, height: '100%', background: color, borderRadius: 'var(--radius-pill)' }} />
             </div>
@@ -84,11 +104,11 @@ export default function Anomalies() {
   const DIR_LABEL = { high: t('anomalies.dirHigh'), low: t('anomalies.dirLow') }
   const SEV_LABEL = { alert: t('anomalies.sevAlert'), critical: t('anomalies.sevCritical') }
   const STATUS_LABEL = { open: t('anomalies.stOpen'), acknowledged: t('anomalies.stAck'), resolved: t('anomalies.stResolved') }
-  const BUCKET_LABEL = { day: t('anomalies.bucketDay'), week: t('anomalies.bucketWeek'), month: t('anomalies.bucketMonth') }
+  const wLabel = (w) => t(`anomalies.${WINDOW_KEY[w]}`)
 
+  const [window_, setWindow] = useState('24h')
+  const windowStats = useApi(() => api.anomalyWindowStats(window_), [window_])
   const stats = useApi(api.anomalyStats)
-  const [bucket, setBucket] = useState('day')
-  const histogram = useApi(() => api.anomalyHistogram(bucket), [bucket])
   const [filters, setFilters] = useState({ equipment: '', severity: '' })
   const episodes = useApi(() => api.anomalies(filters), [filters.equipment, filters.severity])
   const options = useApi(api.anomalies) // liste complète, pour peupler le filtre équipement
@@ -99,75 +119,107 @@ export default function Anomalies() {
     [options.data],
   )
 
+  const pieData = useMemo(() => {
+    if (!windowStats.data) return []
+    return Object.entries(windowStats.data.by_dimension).map(([k, v]) => ({
+      key: k, name: t(`anomalies.${DIM_LABEL_KEY[k]}`), value: v,
+    }))
+  }, [windowStats.data, t])
+
   const act = async (id, status) => {
     setBusyId(id)
     try {
       await api.updateAnomalyStatus(id, status)
       episodes.reload()
       stats.reload()
+      windowStats.reload()
     } finally {
       setBusyId(null)
     }
   }
 
+  const windowSelector = (
+    <div className="flex gap-1" role="group" aria-label={t('anomalies.windowLabel')}>
+      {WINDOWS.map((w) => (
+        <button
+          key={w}
+          onClick={() => setWindow(w)}
+          className="num"
+          style={{
+            fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--radius-sm)',
+            border: `1px solid ${w === window_ ? 'var(--accent)' : 'var(--border)'}`,
+            background: w === window_ ? 'var(--accent-soft)' : 'transparent',
+            color: w === window_ ? 'var(--accent-hover)' : 'var(--text-muted)', cursor: 'pointer',
+          }}
+        >
+          {wLabel(w)}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Stat cards */}
-      <ApiState loading={stats.loading} error={stats.error}>
-        {stats.data && (
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            <Stat label={t('anomalies.total')} value={stats.data.total} />
-            <Stat label={t('anomalies.rate')} value={stats.data.anomaly_rate_pct.toFixed(2)} suffix="%" />
-            <Stat label={t('anomalies.mtba')} value={stats.data.mtba_hours.toFixed(1)} suffix="h" />
-            <Stat label={t('anomalies.top')} value={stats.data.top_equipment} suffix={`× ${stats.data.top_equipment_count}`} />
-          </div>
-        )}
-      </ApiState>
-
-      {/* Histogramme temporel + sélecteur de granularité */}
-      <Panel
-        title={t('anomalies.histTitle')}
-        subtitle={t('anomalies.histSub')}
-        actions={
-          <div className="flex gap-1" role="group" aria-label={t('anomalies.bucketGroup')}>
-            {BUCKETS.map((b) => (
-              <button
-                key={b}
-                onClick={() => setBucket(b)}
-                className="num"
-                style={{
-                  fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${b === bucket ? 'var(--accent)' : 'var(--border)'}`,
-                  background: b === bucket ? 'var(--accent-soft)' : 'transparent',
-                  color: b === bucket ? 'var(--accent-hover)' : 'var(--text-muted)', cursor: 'pointer',
-                }}
-              >
-                {BUCKET_LABEL[b]}
-              </button>
-            ))}
-          </div>
-        }
-      >
-        <ApiState loading={histogram.loading} error={histogram.error}>
-          {histogram.data && <AnomalyHistogram bins={histogram.data.bins} bucket={histogram.data.bucket} />}
-        </ApiState>
-      </Panel>
-
-      {/* Répartitions */}
-      <Panel title={t('anomalies.distTitle')} subtitle={t('anomalies.distSub')}>
-        <ApiState loading={stats.loading} error={stats.error}>
-          {stats.data && (
-            <div className="grid gap-8" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <Distribution title={t('anomalies.byType')} data={stats.data.by_type} labels={TYPE_LABEL} />
-              <Distribution title={t('anomalies.bySeverity')} data={stats.data.by_severity} labels={SEV_LABEL} />
-              <Distribution title={t('anomalies.byDirection')} data={stats.data.by_direction} labels={DIR_LABEL} />
-              <Distribution title={t('anomalies.byStatus')} data={stats.data.by_status} labels={STATUS_LABEL} color="var(--viz-2)" />
+      {/* 1. Total (fenêtre) + tendance, taux, famille la plus contributrice */}
+      <Panel title={t('anomalies.overview')} subtitle={wLabel(window_)} actions={windowSelector}>
+        <ApiState loading={windowStats.loading} error={windowStats.error}>
+          {windowStats.data && (
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <Stat label={t('anomalies.total')} value={windowStats.data.total}>
+                <AnomalyTrend current={windowStats.data.total} previous={windowStats.data.previous_total} label={t('anomalies.vsPrevious')} />
+              </Stat>
+              <Stat label={t('anomalies.rateWindow')} value={windowStats.data.rate_pct.toFixed(2)} suffix="%" />
+              <Stat
+                label={t('anomalies.topFamily')}
+                value={windowStats.data.top_family ? t(`anomalies.${FAMILY_LABEL_KEY[windowStats.data.top_family] ?? 'familyUnknown'}`) : t('anomalies.familyUnknown')}
+                suffix={windowStats.data.top_family ? `× ${windowStats.data.top_family_count}` : undefined}
+              />
             </div>
           )}
         </ApiState>
       </Panel>
 
-      {/* Table + filtres + actions */}
+      {/* 2. Pie chart : quel modèle génère le plus d'anomalies sur la fenêtre */}
+      <Panel title={t('anomalies.pieTitle')} subtitle={t('anomalies.pieSub', { w: wLabel(window_) })}>
+        <ApiState loading={windowStats.loading} error={windowStats.error}>
+          {windowStats.data && (
+            <div style={{ height: 240 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                    {pieData.map((d) => <Cell key={d.key} fill={DIM_COLOR[d.key]} />)}
+                  </Pie>
+                  <ReTooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </ApiState>
+      </Panel>
+
+      {/* 3. Distribution par dimension (environnement / SCADA) */}
+      <Panel title={t('anomalies.byDimension')} subtitle={wLabel(window_)}>
+        <ApiState loading={windowStats.loading} error={windowStats.error}>
+          {windowStats.data && (
+            <Distribution
+              data={windowStats.data.by_dimension}
+              labels={{ environment: t('anomalies.dimEnvironment'), scada: t('anomalies.dimScada') }}
+            />
+          )}
+        </ApiState>
+      </Panel>
+
+      {/* 4. Distribution par sévérité */}
+      <Panel title={t('anomalies.bySeverity')} subtitle={t('anomalies.distSub')}>
+        <ApiState loading={stats.loading} error={stats.error}>
+          {stats.data && (
+            <Distribution data={stats.data.by_severity} labels={SEV_LABEL} color="var(--viz-2)" />
+          )}
+        </ApiState>
+      </Panel>
+
+      {/* 5. Table détaillée + filtres + actions */}
       <Panel
         title={t('anomalies.episodes')}
         subtitle={t('anomalies.episodesSub')}

@@ -41,6 +41,8 @@ def _to_entry(row: PMSchedule) -> CalendarEntry:
         next_pm_date=row.next_pm_date,
         # recalculé à la lecture pour rester juste au fil des jours
         days_remaining=(row.next_pm_date - date.today()).days,
+        assigned_to=row.assigned_to,
+        notes=row.notes,
     )
 
 
@@ -51,6 +53,8 @@ def schedule(session: Session, req: ScheduleRequest) -> CalendarEntry:
         period_value=req.period_value,
         period_unit=req.period_unit.value,
         next_pm_date=compute_next_pm(req.last_pm_date, req.period_value, req.period_unit),
+        assigned_to=req.assigned_to,
+        notes=req.notes,
     )
     session.add(row)
     session.commit()
@@ -82,6 +86,8 @@ def update(session: Session, pm_id: str, req: ScheduleRequest) -> CalendarEntry 
     row.period_value = req.period_value
     row.period_unit = req.period_unit.value
     row.next_pm_date = compute_next_pm(req.last_pm_date, req.period_value, req.period_unit)
+    row.assigned_to = req.assigned_to
+    row.notes = req.notes
     session.commit()
     return _to_entry(row)
 

@@ -41,7 +41,7 @@ datapulse/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   ├── pages/           # Site Health, Forecast, Anomalies, Maintenance, Reminders
+│   │   ├── pages/           # Aperçu, Site Health, Forecast, Anomalies, Maintenance (rappels = notifications, pas une page)
 │   │   ├── design-system/ # tokens extraits de Claude Design (couleurs, typo, composants)
 │   │   └── api/               # clients HTTP vers le backend
 │   └── package.json
@@ -71,11 +71,22 @@ Trois tables sources, fournies en **exports CSV** (PostgreSQL `datacenter_ops` n
 Le design system DataPulse est produit séparément via Claude Design (esthétique sobre-technique : base navy/charcoal/gris neutres, accents thermique/énergie/criticité utilisés avec parcimonie, typographie avec chiffres tabulaires, logo DataPulse dédié). tu trouveras le design en fichier html nommé "DataPulse - Identity v2 (standalone)"
 ## 6. Fonctionnalités clés — spécifications déjà arrêtées
 
+### Aperçu (page d'accueil d'un site)
+- Score global + sous-scores (environnement/énergie/batterie) des dernières 24h
+- Prochaine panne prédite (la plus proche toutes familles confondues) avec ses détails
+- Petit aperçu des 5 dernières lignes de la table des anomalies (lien vers la page complète)
+- Prochaine maintenance + nombre de maintenances sur les 7 prochains jours (lien vers le calendrier complet)
+- Page d'index du site (route `/`) ; Santé du site déplacée sur `/health`
+
+### Rappels — notifications, pas une page
+- Plus de page dédiée : cloche en haut à droite du header (badge = nombre de rappels actifs), popover listant les rappels avec les actions acquitter/reporter
+- Backend inchangé (`GET /api/reminders`, `POST .../acknowledge`, `POST .../snooze`) — seule la présentation frontend change
+
 ### Maintenance préventive
-- Calendrier en haut de page (élément dominant visuellement)
-- Formulaire de planification en dessous (compact, secondaire) : 3 champs — équipement, date de dernière PM, période avant la prochaine (valeur + unité)
+- Tout en haut : KPI prochaine maintenance (équipement + date + délai) et nombre de maintenances sur les 7 prochains jours
+- Formulaire de planification en premier (avant le calendrier) : équipement (sélecteur, parc réel), date de dernière PM, période avant la prochaine (valeur + unité), technicien assigné, notes
 - Calcul automatique : date prochaine PM = date dernière PM + période → ajout automatique au calendrier
-- Liste "Planning calculé" : équipement, dernière PM, prochaine PM, jours restants, modifiable/supprimable
+- Calendrier ensuite, cliquable par jour : affiche le détail du jour sélectionné (PM du jour, avec actions modifier/supprimer)
 
 ### Prédiction des pannes / Forecast
 - Organisation **par score, pas par équipement**

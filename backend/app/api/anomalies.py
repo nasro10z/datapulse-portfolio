@@ -9,9 +9,11 @@ from app.models.anomalies import (
     AnomalyEpisode,
     AnomalyHistogram,
     AnomalyStats,
+    AnomalyWindow,
     HistogramBucket,
     Severity,
     StatusUpdate,
+    WindowStats,
 )
 from app.services import anomalies as anomalies_service
 
@@ -38,6 +40,11 @@ def get_stats(session: Session = Depends(get_session)) -> AnomalyStats:
 @router.get("/histogram", response_model=AnomalyHistogram)
 def get_histogram(bucket: HistogramBucket = HistogramBucket.day) -> AnomalyHistogram:
     return providers.anomaly_histogram(bucket)
+
+
+@router.get("/window-stats", response_model=WindowStats)
+def get_window_stats(window: AnomalyWindow = AnomalyWindow.h24) -> WindowStats:
+    return providers.anomaly_window_stats(window)
 
 
 @router.patch("/{episode_id}", response_model=AnomalyEpisode)

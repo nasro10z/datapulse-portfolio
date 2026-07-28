@@ -24,7 +24,7 @@ def replace_episodes(session: Session, episodes: list[AnomalyEpisode]) -> int:
         session.add(AnomalyEpisodeRow(
             id=e.id, equipment=e.equipment, type=e.type.value, severity=e.severity.value,
             direction=e.direction.value, start=_naive(e.start), duration_min=e.duration_min,
-            peak_value=e.peak_value, status=e.status.value, computed_at=now,
+            peak_value=e.peak_value, status=e.status.value, dimension=e.dimension.value, computed_at=now,
         ))
     session.commit()
     return len(episodes)
@@ -37,7 +37,7 @@ def read_episodes(session: Session) -> list[AnomalyEpisode]:
         AnomalyEpisode(
             id=r.id, equipment=r.equipment, type=r.type, severity=r.severity,
             direction=r.direction, start=r.start, duration_min=r.duration_min,
-            peak_value=r.peak_value, status=r.status,
+            peak_value=r.peak_value, status=r.status, dimension=r.dimension,
         )
         for r in rows
     ]

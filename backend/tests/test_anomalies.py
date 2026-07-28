@@ -1,5 +1,5 @@
 from app.mocks.equipment import MILD_UPPER
-from app.models.anomalies import AnomalyEpisode, AnomalyHistogram, AnomalyStats
+from app.models.anomalies import AnomalyEpisode, AnomalyHistogram, AnomalyStats, WindowStats
 
 
 def test_list_contract(client):
@@ -9,6 +9,7 @@ def test_list_contract(client):
     assert 27 <= len(episodes) <= 36  # cohérent avec le pipeline validé
     highs = [e for e in episodes if e.direction.value == "high"]
     assert all(e.peak_value >= MILD_UPPER for e in highs)
+    assert {e.dimension.value for e in episodes} <= {"environment", "scada"}
 
 
 def test_filter_by_equipment_and_severity(client):
@@ -87,3 +88,30 @@ def test_acknowledging_open_anomaly_clears_its_reminder(client):
     client.patch(f"/api/anomalies/{open_ep['id']}", json={"status": "acknowledged"})
     after = {r["id"] for r in client.get("/api/reminders").json()}
     assert rid not in after
+
+
+def test_window_stats_contract(client):
+    for window in ("24h", "7d"):
+        r = client.get("/api/anomalies/window-stats", params={"window": window})
+        assert r.status_code == 200
+        ws = WindowStats.model_validate(r.json())
+        assert ws.window.value == window
+        assert ws.total >= 0
+        assert sum(ws.by_dimension.values()) == ws.total
+        assert ws.rate_pct >= 0
+        if ws.total > 0:
+            assert ws.top_family is not None
+            assert ws.top_family_count > 0
+        else:
+            assert ws.top_family is None
+
+
+def test_window_stats_7d_covers_at_least_as_much_as_24h(client):
+    h24 = WindowStats.model_validate(client.get("/api/anomalies/window-stats", params={"window": "24h"}).json())
+    d7 = WindowStats.model_validate(client.get("/api/anomalies/window-stats", params={"window": "7d"}).json())
+    assert d7.total >= h24.total
+
+
+def test_window_stats_invalid_window_rejected(client):
+    r = client.get("/api/anomalies/window-stats", params={"window": "30d"})
+    assert r.status_code == 422

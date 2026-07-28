@@ -40,6 +40,9 @@ class AnomalyEpisodeRow(Base):
     duration_min: Mapped[float] = mapped_column(Float)
     peak_value: Mapped[float] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(16))     # statut calculé (avant surcharge)
+    # environment | scada — cette table ne couvre que l'environnemental à ce
+    # jour (cf. docstring module) ; défaut cohérent avec la seule source branchée.
+    dimension: Mapped[str] = mapped_column(String(16), default="environment")
     computed_at: Mapped[datetime] = mapped_column(DateTime)
 
 

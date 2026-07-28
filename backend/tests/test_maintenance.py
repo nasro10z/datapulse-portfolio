@@ -103,6 +103,41 @@ def test_delete_removes_entry(client):
     assert created["id"] not in ids
 
 
+def test_schedule_with_details_persists(client):
+    r = client.post("/api/maintenance/schedule", json={
+        "equipment": "STULZ-02", "last_pm_date": "2026-07-01",
+        "period_value": 3, "period_unit": "months",
+        "assigned_to": "A. B.", "notes": "Vérifier filtres + fluide",
+    })
+    assert r.status_code == 201
+    entry = CalendarEntry.model_validate(r.json())
+    assert entry.assigned_to == "A. B."
+    assert entry.notes == "Vérifier filtres + fluide"
+    # persisté : relu depuis le calendrier
+    reread = next(e for e in client.get("/api/maintenance/calendar").json() if e["id"] == entry.id)
+    assert reread["assigned_to"] == "A. B."
+    assert reread["notes"] == "Vérifier filtres + fluide"
+
+
+def test_schedule_details_are_optional(client):
+    r = client.post("/api/maintenance/schedule", json={
+        "equipment": "STULZ-04", "last_pm_date": "2026-07-01",
+        "period_value": 3, "period_unit": "months",
+    })
+    assert r.status_code == 201
+    entry = CalendarEntry.model_validate(r.json())
+    assert entry.assigned_to is None
+    assert entry.notes is None
+
+
+def test_equipment_options_contract(client):
+    r = client.get("/api/maintenance/equipment")
+    assert r.status_code == 200
+    units = r.json()
+    assert "STULZ-01" in units and "UPS-01" in units and "GEN-01" in units
+    assert len(units) == 14
+
+
 def test_update_delete_unknown_404(client):
     assert client.patch("/api/maintenance/schedule/PM-9999", json={
         "equipment": "X", "last_pm_date": "2026-07-01",

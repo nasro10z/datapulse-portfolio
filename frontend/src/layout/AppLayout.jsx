@@ -1,20 +1,19 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { HeartPulse, TrendingUp, TriangleAlert, CalendarDays, Bell, Globe, Sun, Moon, ChevronsUpDown, Menu, Circle } from 'lucide-react'
+import { LayoutDashboard, HeartPulse, TrendingUp, TriangleAlert, CalendarDays, Globe, Sun, Moon, ChevronsUpDown, Menu, Circle } from 'lucide-react'
 import Logo from '../components/Logo'
-import { api } from '../api/client'
-import useApi from '../hooks/useApi'
+import NotificationBell from '../components/NotificationBell'
 import useTheme from '../hooks/useTheme'
 import { useLang, LANGS } from '../i18n'
 import { SITES, findSite } from '../sites'
 import GlobalView from '../pages/GlobalView'
 
 const NAV = [
-  { to: '/', key: 'siteHealth', Icon: HeartPulse },
+  { to: '/', key: 'overview', Icon: LayoutDashboard },
+  { to: '/health', key: 'siteHealth', Icon: HeartPulse },
   { to: '/forecast', key: 'forecast', Icon: TrendingUp },
   { to: '/anomalies', key: 'anomalies', Icon: TriangleAlert },
   { to: '/maintenance', key: 'maintenance', Icon: CalendarDays },
-  { to: '/reminders', key: 'reminders', Icon: Bell },
 ]
 const TITLES = Object.fromEntries(NAV.map((n) => [n.to, n]))
 
@@ -46,9 +45,6 @@ export default function AppLayout() {
     const clockId = setInterval(() => setClock(new Date().toTimeString().slice(0, 5)), 30000)
     return () => { mq.removeEventListener('change', onChange); window.removeEventListener('keydown', onKey); clearInterval(clockId) }
   }, [])
-
-  const reminders = useApi(api.remindersCount, [pathname])
-  const reminderCount = reminders.data?.count ?? 0
 
   const [view, setView] = useState('global')
   const [siteMenuOpen, setSiteMenuOpen] = useState(false)
@@ -103,12 +99,6 @@ export default function AppLayout() {
                     <>
                       <Icon size={18} strokeWidth={1.9} style={{ flex: 'none', color: isActive ? 'var(--chart-healthy)' : 'currentColor' }} aria-hidden="true" />
                       <span style={{ fontSize: 13, fontWeight: 500 }}>{t(`nav.${key}`)}</span>
-                      {to === '/reminders' && reminderCount > 0 && (
-                        <span className="num" aria-label={t('layout.remindersActive', { n: reminderCount })}
-                          style={{ marginLeft: 'auto', flex: 'none', minWidth: 18, height: 18, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, borderRadius: 'var(--radius-pill)', background: 'var(--chart-critical)', color: '#fff' }}>
-                          {reminderCount}
-                        </span>
-                      )}
                     </>
                   )}
                 </NavLink>
@@ -179,6 +169,8 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-2" style={{ marginLeft: 'auto', flex: 'none' }}>
+            <NotificationBell />
+
             <div className="num flex" role="group" aria-label={t('layout.changeLanguage')}
               style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
               {LANGS.map((l) => (

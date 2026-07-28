@@ -30,6 +30,7 @@ export const api = {
   },
   anomalyStats: () => request('/api/anomalies/stats'),
   anomalyHistogram: (bucket = 'day') => request(`/api/anomalies/histogram?bucket=${bucket}`),
+  anomalyWindowStats: (window = '24h') => request(`/api/anomalies/window-stats?window=${window}`),
   updateAnomalyStatus: (id, status) =>
     request(`/api/anomalies/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
@@ -41,6 +42,7 @@ export const api = {
   deleteMaintenance: (id) =>
     request(`/api/maintenance/schedule/${id}`, { method: 'DELETE' }),
   maintenanceCalendar: () => request('/api/maintenance/calendar'),
+  maintenanceEquipmentOptions: () => request('/api/maintenance/equipment'),
 
   // Reminders
   reminders: () => request('/api/reminders'),

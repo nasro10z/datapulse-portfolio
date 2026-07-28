@@ -7,17 +7,37 @@ surcharge de statut et le filtrage sont, eux, partagés.
 """
 from datetime import date, datetime, timedelta
 
+from app.mocks.equipment import SOCOMEC_UNITS, STULZ_UNITS, YANAN_UNITS
 from app.models.anomalies import (
+    AnomalyDimension,
     AnomalyEpisode,
     AnomalyHistogram,
     AnomalyStats,
     AnomalyStatus,
     AnomalyType,
+    AnomalyWindow,
     Direction,
     HistogramBin,
     HistogramBucket,
     Severity,
+    WindowStats,
 )
+
+_FAMILY_BY_UNIT = (
+    {u: "stulz" for u in STULZ_UNITS}
+    | {u: "socomec" for u in SOCOMEC_UNITS}
+    | {u: "yanan" for u in YANAN_UNITS}
+)
+_WINDOW_HOURS = {AnomalyWindow.h24: 24, AnomalyWindow.d7: 24 * 7}
+
+
+def family_of(equipment: str) -> str:
+    """Famille d'équipement pour un identifiant brut. `SALLE_SWITCH` (granularité
+    de détection environnementale, cf. `etl/detect.py`) est climatisée par les
+    STULZ → rattachée à la famille `stulz`."""
+    if equipment == "SALLE_SWITCH":
+        return "stulz"
+    return _FAMILY_BY_UNIT.get(equipment, "unknown")
 
 
 def apply_overrides(
@@ -111,4 +131,42 @@ def compute_stats(episodes: list[AnomalyEpisode], window_days: int) -> AnomalySt
         by_status={st: sum(1 for e in episodes if e.status == st) for st in AnomalyStatus},
         top_equipment=top_equipment,
         top_equipment_count=by_equipment.get(top_equipment, 0),
+    )
+
+
+def _naive(dt: datetime) -> datetime:
+    """Le mock produit des `start` timezone-aware (UTC) ; le gold live les
+    stocke naïfs (UTC implicite, cf. `storage/repositories/gold_repo.py`).
+    Normalise avant comparaison pour rester agnostique de la source."""
+    return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+
+
+def compute_window_stats(episodes: list[AnomalyEpisode], window: AnomalyWindow, now: datetime) -> WindowStats:
+    """Total + tendance (vs période précédente de même durée) + taux + famille
+    top + répartition par dimension, sur une fenêtre glissante se terminant à `now`."""
+    now = _naive(now)
+    hours = _WINDOW_HOURS[window]
+    cur_start = now - timedelta(hours=hours)
+    prev_start = cur_start - timedelta(hours=hours)
+
+    current = [e for e in episodes if cur_start <= _naive(e.start) <= now]
+    previous = [e for e in episodes if prev_start <= _naive(e.start) < cur_start]
+
+    by_family: dict[str, int] = {}
+    for e in current:
+        fam = family_of(e.equipment)
+        by_family[fam] = by_family.get(fam, 0) + 1
+    top_family = max(by_family, key=by_family.get) if by_family else None
+
+    window_minutes = hours * 60
+    anomalous_minutes = sum(e.duration_min for e in current)
+
+    return WindowStats(
+        window=window,
+        total=len(current),
+        previous_total=len(previous),
+        rate_pct=round(100 * anomalous_minutes / window_minutes, 2),
+        top_family=top_family,
+        top_family_count=by_family.get(top_family, 0) if top_family else 0,
+        by_dimension={d: sum(1 for e in current if e.dimension == d) for d in AnomalyDimension},
     )

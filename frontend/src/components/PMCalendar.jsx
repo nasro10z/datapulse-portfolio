@@ -12,11 +12,13 @@ const weekdayNames = (locale) =>
   [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }))
 
 /**
- * Calendrier mensuel des prochaines PM — élément dominant de la page Maintenance.
+ * Calendrier mensuel des prochaines PM.
  * entries: [{ id, equipment, next_pm_date, days_remaining }]
- * onSelect(entry) : clic sur un marqueur PM (édition depuis le calendrier).
+ * selectedDate: iso string du jour sélectionné (surlignage)
+ * onDayClick(isoDateString) : clic sur un jour (cellule ou marqueur PM) —
+ * le détail du jour (liste des PM) est affiché par le parent.
  */
-export default function PMCalendar({ entries = [], onSelect }) {
+export default function PMCalendar({ entries = [], selectedDate, onDayClick }) {
   const { t, locale } = useLang()
   const WEEKDAYS = useMemo(() => weekdayNames(locale), [locale])
   const today = new Date()
@@ -81,43 +83,49 @@ export default function PMCalendar({ entries = [], onSelect }) {
           const key = iso(d)
           const pms = byDate[key] ?? []
           const isToday = key === todayIso
+          const isSelected = key === selectedDate
           return (
-            <div
+            <button
               key={i}
+              type="button"
+              onClick={() => onDayClick?.(key)}
+              aria-pressed={isSelected}
+              aria-label={t('maintenance.dayDetailTitle') + ' ' + key}
               style={{
                 minHeight: 74,
-                border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`,
+                textAlign: 'left',
+                border: `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'var(--accent)' : 'var(--border)'}`,
+                borderWidth: isSelected ? 2 : 1,
                 borderRadius: 'var(--radius-sm)',
-                background: isToday ? 'var(--accent-soft)' : 'var(--surface)',
-                padding: '6px 7px',
+                background: isSelected ? 'var(--accent-soft)' : isToday ? 'var(--accent-soft)' : 'var(--surface)',
+                padding: isSelected ? 5 : 6,
+                paddingLeft: isSelected ? 6 : 7,
                 display: 'flex', flexDirection: 'column', gap: 4,
+                cursor: 'pointer', font: 'inherit',
               }}
             >
-              <div className="num" style={{ fontSize: 11, color: isToday ? 'var(--accent-hover)' : 'var(--text-muted)', fontWeight: isToday ? 600 : 400 }}>
+              <div className="num" style={{ fontSize: 11, color: isToday || isSelected ? 'var(--accent-hover)' : 'var(--text-muted)', fontWeight: isToday || isSelected ? 600 : 400 }}>
                 {d.getDate()}
               </div>
               {pms.map((pm) => (
-                <button
+                <span
                   key={pm.id}
-                  type="button"
-                  onClick={() => onSelect?.(pm)}
                   title={`${pm.equipment} — PM ${key} (J−${pm.days_remaining})`}
-                  aria-label={t('maintenance.editPmAria', { equip: pm.equipment, date: key })}
                   className="num"
                   style={{
-                    display: 'block', width: '100%', textAlign: 'left',
+                    display: 'block', width: '100%',
                     fontSize: 10, fontWeight: 600, lineHeight: 1.3,
                     padding: '2px 5px', borderRadius: 4,
                     background: 'var(--surface-inset)',
-                    border: 'none', borderLeft: `3px solid ${urgencyColor(pm.days_remaining)}`,
-                    color: 'var(--text)', cursor: onSelect ? 'pointer' : 'default',
+                    borderLeft: `3px solid ${urgencyColor(pm.days_remaining)}`,
+                    color: 'var(--text)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}
                 >
                   {pm.equipment}
-                </button>
+                </span>
               ))}
-            </div>
+            </button>
           )
         })}
       </div>

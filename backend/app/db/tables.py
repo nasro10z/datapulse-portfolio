@@ -29,6 +29,8 @@ class PMSchedule(Base):
     period_value: Mapped[int]
     period_unit: Mapped[str] = mapped_column(String(16))
     next_pm_date: Mapped[date]
+    assigned_to: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class AnomalyAction(Base):

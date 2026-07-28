@@ -4,6 +4,89 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 9 — 2026-07-28 (suite) — Page Aperçu (dashboard site) + rappels en notifications
+
+**Demande** : nouvel onglet « Aperçu » par site — score global + sous-scores (24h), prochaine panne prédite avec détails, aperçu des 5 dernières anomalies, prochaine maintenance + nombre cette semaine. Et changer la logique des rappels pour qu'ils apparaissent comme des notifications (cloche en haut à droite, popover) plutôt qu'une page dédiée.
+
+### Constat de départ
+Aucune donnée manquante : cette page agrège uniquement des endpoints déjà construits dans les sessions 5-8 (`health/overview`, `health/predicted-faults`, `anomalies`, `maintenance/calendar`, `reminders`). **Zéro changement backend** cette session — une première depuis le début de la finalisation UI/UX.
+
+### Décision
+- **Aperçu devient la page d'index** (`/`) du site — c'est un vrai dashboard de synthèse, pas un onglet parmi d'autres (cohérent avec la note Session 3 : « Page Aperçu dédiée, comme la référence »). Santé du site déplacée sur `/health` pour libérer `/`.
+- **Prochaine panne prédite** : une seule (pas 3 cartes comme sur Prévision) — la plus proche dans le temps parmi les 3 familles, horizon 7 j (24h donnait trop souvent « aucune panne prévue », peu utile en aperçu).
+- **Rappels** : page + route `/reminders` retirées de la navigation ; remplacées par `NotificationBell` (cloche + badge dans le header, popover avec actions acquitter/reporter). Le composant `Reminders.jsx` et l'endpoint `remindersCount` restent dans le code mais ne sont plus utilisés (cf. mémoire scope discipline — code mort conservé, pas supprimé).
+- **Extraction DRY** (3ᵉ occurrence du même motif) : `components/KpiCard.jsx`, `components/DueBadge.jsx`, `components/DeltaTag.jsx`, `constants/domains.js`, `utils/maintenanceKpi.js` — Maintenance.jsx refactorisé pour les utiliser ; Site Health/Prévision **non touchées** (copies locales laissées telles quelles, déjà vérifiées, pour ne pas prendre de risque de régression sur du code livré).
+
+### Réalisations
+- Frontend uniquement : `pages/Overview.jsx` (nouveau), `components/NotificationBell.jsx` (nouveau, ferme au clic extérieur + Échap), `layout/AppLayout.jsx` (nav réordonnée, badge de rappels déplacé de la sidebar vers la cloche), `App.jsx` (routing : `/` → Overview, `/health` → Site Health, route `/reminders` retirée), i18n FR/EN (+`overview.*`, `nav.overview`, `layout.notifications`). `CLAUDE.md` mis à jour (architecture + specs Aperçu/Rappels).
+- Test `Overview.test.jsx` ajouté (score, sous-scores, panne la plus proche retenue sur 2 candidates, anomalie récente, prochaine PM).
+
+### Validation
+- `npm run build` OK. Navigateur (backend live sur :8000, plus de processus fantôme — libéré côté utilisateur) : les 5 sections dans l'ordre demandé avec de vraies données ; cloche visible même en Vue globale ; popover ouvert → 4 rappels avec actions ; acquittement d'un rappel de maintenance → badge 4→3, entrée disparaît de la liste (revérifié en direct) ; clic en dehors → popover se ferme ; navigation Maintenance/Santé du site revérifiée après le refactor DRY, aucune régression visuelle. Aucune erreur console sur l'ensemble du parcours.
+- `npm test` (vitest) : toujours cassé par le souci d'environnement préexistant (`html-encoding-sniffer`/ESM) — non lié au code, non revérifiable dans cet environnement.
+
+### En suspens
+- Les 5 pages « page par page » de la demande initiale sont maintenant **toutes finalisées** (Aperçu, Santé du site, Prévision, Anomalies, Maintenance). Reste ouvert : Phase 8 F (scoring santé réel, notebook non prêt) et l'intégration SCADA (`alarm_anomaly`) pour la dimension anomalies.
+- `Reminders.jsx` et `api.remindersCount` non supprimés mais orphelins (plus référencés) — à nettoyer si confirmé définitivement inutile.
+
+---
+
+## Session 8 — 2026-07-28 (suite) — Finalisation UI/UX Maintenance (formulaire détaillé + calendrier cliquable)
+
+**Demande** : formulaire « Planifier une PM » plus détaillé, placé **avant** le calendrier (inversion du spec CLAUDE.md §6 d'origine — décision produit assumée par l'utilisateur) ; calendrier cliquable pour voir le détail du jour et de la PM ; tout en haut, prochaine maintenance + nombre de maintenances cette semaine.
+
+### Décision
+- Champs additifs sur `ScheduleRequest`/`CalendarEntry` : `assigned_to` (technicien) et `notes`, tous deux optionnels — pas de nouvelle table, juste 2 colonnes nullable sur `pm_schedules` (état applicatif déjà en écriture utilisateur, migration triviale contrairement à la table gold de la session Anomalies).
+- Champ équipement transformé en **sélecteur** (parc réel STULZ/SOCOMEC/YANAN) plutôt que texte libre — nouvel endpoint `GET /api/maintenance/equipment` (source `mocks/equipment.ALL_UNITS`, donnée réelle statique, pas un mock aléatoire).
+- KPI « prochaine maintenance » et « cette semaine » **calculés côté frontend** à partir de `calendar.data` déjà chargé (tri par `days_remaining`, filtre 0–7 j) — aucune donnée supplémentaire à exposer côté API.
+- Calendrier : chaque cellule de jour devient un bouton cliquable (accessible, `aria-label`) au lieu de seuls les marqueurs de PM ; sélectionner un jour affiche son détail dans un panneau dédié (toutes les PM du jour, avec notes/technicien si renseignés, actions Modifier/Supprimer). « Modifier » recharge le formulaire (repositionné en premier) et y scrolle.
+- CLAUDE.md §6 mis à jour pour refléter le nouveau layout (le document décrivait encore l'ancien ordre « calendrier dominant, formulaire compact » ainsi qu'une liste « Planning calculé » déjà supprimée en Session 3).
+
+### Réalisations
+- Backend : `models/maintenance.py`, `db/tables.py` (colonnes `assigned_to`/`notes`), `services/maintenance.py`, `api/maintenance.py` (+`GET /equipment`). **Migration manuelle** de `backend/data/datapulse.db` (`pm_schedules`, 4 lignes) via `ALTER TABLE ... ADD COLUMN` (nullable, pas de valeur par défaut nécessaire). Tests +3 (détails optionnels/persistés, contrat du catalogue équipement).
+- Frontend : `PMCalendar.jsx` réécrit (cellule de jour = bouton, prop `selectedDate`/`onDayClick` remplace `onSelect`) ; `Maintenance.jsx` réécrit — ordre KPI → formulaire (5 champs, équipement en select) → calendrier + panneau détail du jour. `api/client.js` (+`maintenanceEquipmentOptions`), i18n FR/EN étendu. `Maintenance.test.jsx` mis à jour (select au lieu de texte libre, nouveau test de sélection de jour — piège évité : le calendrier affiche le mois **courant réel**, pas une date fixe, donc le test construit sa date dynamiquement plutôt que de coder en dur un mois arbitraire).
+
+### Validation
+- `pytest backend/tests/` : **53/54** (même échec préexistant `openpyxl`, sans rapport).
+- Navigateur (build + vérification bout-en-bout, backend réel sur :8000 — l'utilisateur a résolu le processus fantôme du port 8000 signalé en session précédente) : KPI correct (GEN-01 « Dans 7 j », 1 maintenance cette semaine), formulaire en premier avec sélecteur d'équipement peuplé (14 unités), navigation de mois testée, clic sur une cellule de jour → panneau détail (équipement, délai, dernière PM), bouton Modifier → formulaire pré-rempli (« Modifier PM-0004 », y compris période en semaines) et scrollé en vue. Aucune erreur console.
+
+### En suspens
+- Page Rappels reste à finaliser (dernière page de la demande « page par page »).
+- `npm test` (vitest) non revérifié cette session — souci d'environnement préexistant sans rapport avec le code (cf. sessions précédentes).
+
+---
+
+## Session 7 — 2026-07-28 (suite) — Finalisation UI/UX Anomalies (KPI fenêtré + dimension de détection)
+
+**Demande** : refonte de la page Anomalies — (1) total + tendance 24h/semaine, taux d'anomalies sur la fenêtre, famille la plus contributrice ; (2) pie chart du modèle générant le plus d'anomalies ; (3) distribution par dimension (environnement/SCADA) ; (4) distribution par sévérité ; (5) table de détail. Layout à concevoir, backend à vérifier/étendre si besoin.
+
+### Constat de départ
+Aucune des données demandées n'existait : `AnomalyStats` ne portait qu'un total **all-time** (pas de fenêtre 24h/7j, pas de tendance), `top_equipment` était une unité précise (pas une famille), et rien ne distinguait le **modèle de détection** à l'origine d'un épisode — notion pourtant déjà réelle dans le pipeline validé (`environmental` HMM vs `alarm_anomaly` IsolationForest SCADA, catégories UPS/CLIM/ENERGY, cf. CLAUDE.md §4).
+
+### Décision
+- Nouveau champ **additif** `AnomalyEpisode.dimension` (`environment`/`scada`, défaut `environment`) — décorrélé de la famille d'équipement (les deux modèles peuvent en principe toucher le même équipement, ex. CLIM via alarme SCADA). Seul `environment` existe réellement à ce jour (SCADA/`alarm_anomaly` non branché, cf. mémoire `phase8-state`) ; le mock illustre les deux pour la démo.
+- Nouveau `family_of(equipment)` (services, indépendant de la source) pour dériver stulz/socomec/yanan depuis l'identifiant brut (y compris `SALLE_SWITCH` → stulz).
+- Nouvel endpoint `GET /api/anomalies/window-stats?window=24h|7d` (total, tendance vs période précédente de même durée, taux, famille top, répartition par dimension) — sert à la fois le KPI (1) et le pie chart (2)/la distribution (3), un seul fetch partagé.
+- **Portée volontairement réduite aux 5 éléments demandés** : l'histogramme temporel (jour/semaine/mois) et les répartitions par type/direction/statut de la page précédente ont été retirés (cohérent avec le retour utilisateur de la session Site Health : ne pas garder de sections non demandées). `components/AnomalyHistogram.jsx` n'est plus utilisé mais pas supprimé (facilement réintégrable si souhaité).
+- Familles affichées avec le libellé « domaine » (Environnement/Énergie/Batterie) plutôt que STULZ/SOCOMEC/YANAN, cohérent avec la préférence exprimée sur Forecast dans la session précédente.
+
+### Réalisations
+- Backend : `models/anomalies.py` (+`AnomalyDimension`, `AnomalyWindow`, `WindowStats`), `mocks/anomalies.py` (dimension par équipement), `services/anomaly_aggregation.py` (+`family_of`, `compute_window_stats` — bug corrigé en cours de route : comparaison naïve/aware entre mock (tz-aware) et gold live (naïf), normalisée via un helper `_naive`), `providers.py`, `api/anomalies.py` (`GET /window-stats`). `storage/schema/gold.py` + `storage/repositories/gold_repo.py` : colonne `dimension` (défaut `environment`) ; **migration manuelle** de la base gold réelle existante (`backend/data/datapulse_analytics.db`, 388 épisodes) via `ALTER TABLE ... ADD COLUMN dimension TEXT DEFAULT 'environment'` (évite un ré-ingestion complète qui aurait buté sur `openpyxl` absent pour la partie SCADA du backfill). `etl/detect.py` explicite `dimension=environment`. Tests étendus (+4 cas).
+- Frontend : `Anomalies.jsx` réécrit dans l'ordre demandé — KPI fenêtré (sélecteur 24h/7j partagé), pie chart Recharts, distribution par dimension, distribution par sévérité (inchangée, all-time), table + filtres + actions (inchangés). `api/client.js` (+`anomalyWindowStats`), i18n FR/EN (+overview/window/pie/dimension/family). `Anomalies.test.jsx` mis à jour (mock `anomalyWindowStats` remplace `anomalyHistogram`, +1 test sur le rechargement au changement de fenêtre).
+
+### Validation
+- `pytest backend/tests/` : **50/51** (même échec préexistant `openpyxl`, sans rapport). Vérifié séparément en **live** (`DATA_SOURCE=live`, vraie base migrée) : `/window-stats` répond sans erreur pour 24h et 7j (0 résultat — le jeu de données réel s'arrête en mai 2026, cohérent avec un pipeline batch historique, pas un flux temps réel jusqu'à « aujourd'hui »).
+- Navigateur (build + vérification bout-en-bout) : KPI 24h→7j vérifié (total 1→4, taux 1.70%→2.85%, famille Environnement ×1→×4), pie chart + distribution par dimension cohérents (100 % Environnemental/HMM sur les données mock actuelles — SOCOMEC n'est pas apparu dans l'échantillon de fenêtre, comportement attendu vu le volume). Aucune erreur console.
+- ⚠️ **Contournement de vérification** : un processus backend orphelin sur le port 8000 (probablement issu d'un `preview_start` antérieur dans cette session) s'est révélé injoignable par tous les outils disponibles (Bash/PowerShell/WMI/tasklist/WSL) tout en occupant réellement le port (`WinError 10048` confirmé) — code périmé (routes manquantes → 405 au lieu de 200). Contourné en pointant temporairement `vite.config.js` vers un port 8001 contrôlé le temps de la vérification, puis reverté (`git diff` confirme aucun changement résiduel).
+
+### En suspens
+- Page Maintenance / Rappels restent à finaliser (dernières pages de la demande « page par page »).
+- Port 8000 potentiellement occupé par un processus fantôme non identifiable — si le démarrage du backend échoue avec « address already in use », un redémarrage de la machine est probablement nécessaire (aucun outil disponible ne l'a détecté).
+- `npm test` (vitest) toujours cassé par le souci d'environnement préexistant (`html-encoding-sniffer`/ESM) — non revérifié cette session, sans rapport avec le code.
+- Distribution par sévérité (4) reste all-time (non fenêtrée) — cohérent avec la demande littérale (fenêtre mentionnée seulement pour 1 et 2), à reconsidérer si l'utilisateur veut l'aligner sur la fenêtre 24h/7j.
+
+---
+
 ## Session 5 — 2026-07-28 — Finalisation UI/UX Santé du site (branchée sur l'API)
 
 **Demande** : finaliser le frontend page par page (UI/UX + branchement backend réel), en commençant par Santé du site : score global (%, statut, diff dernière mesure) en haut à gauche, sous-scores (environnement/énergie/batterie, diff + statut) en haut à droite, puis évolution du score global, puis évolution des sous-scores.

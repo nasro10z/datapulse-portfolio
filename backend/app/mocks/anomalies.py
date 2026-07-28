@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.mocks.equipment import EXTREME_UPPER, MILD_UPPER, STULZ_UNITS, SOCOMEC_UNITS
 from app.models.anomalies import (
+    AnomalyDimension,
     AnomalyEpisode,
     AnomalyStatus,
     AnomalyType,
@@ -37,6 +38,8 @@ def _build_episodes() -> list[AnomalyEpisode]:
             peak = rng.uniform(16.5, 19.5)
         # la salle switch est climatisée par les STULZ : ils dominent les épisodes
         equipment = rng.choice(STULZ_UNITS * 4 + SOCOMEC_UNITS)
+        # démo : STULZ ~ détection environnementale (HMM temp/hum), SOCOMEC ~ alarme SCADA
+        dimension = AnomalyDimension.environment if equipment.startswith("STULZ") else AnomalyDimension.scada
         start = now - timedelta(hours=rng.uniform(2, WINDOW_DAYS * 24))
         age_h = (now - start).total_seconds() / 3600
         status = (AnomalyStatus.resolved if age_h > 72
@@ -52,6 +55,7 @@ def _build_episodes() -> list[AnomalyEpisode]:
             duration_min=round(rng.uniform(8, 160), 1),
             peak_value=round(peak, 2),
             status=status,
+            dimension=dimension,
         ))
     episodes.sort(key=lambda e: e.start, reverse=True)
     return episodes
