@@ -4,6 +4,65 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 5 — 2026-07-28 — Finalisation UI/UX Santé du site (branchée sur l'API)
+
+**Demande** : finaliser le frontend page par page (UI/UX + branchement backend réel), en commençant par Santé du site : score global (%, statut, diff dernière mesure) en haut à gauche, sous-scores (environnement/énergie/batterie, diff + statut) en haut à droite, puis évolution du score global, puis évolution des sous-scores.
+
+### Constat de départ
+`pages/SiteHealth.jsx` était **100 % mocké côté frontend** (`siteHealthData.js`), seule page à ne pas utiliser `useApi`/`api.healthOverview()`. Le contrat backend (`HealthOverview`) n'exposait que des sous-scores **par famille d'équipement** (STULZ/SOCOMEC/YANAN, consommés par Forecast) — aucune décomposition par domaine (environnement/énergie/batterie), aucune valeur précédente pour un delta, aucun historique pour un graphique d'évolution.
+
+### Décision
+Étendre le contrat `HealthOverview` de façon **additive** (les sous-scores par famille et la page Forecast restent inchangés) plutôt que détourner le champ existant :
+- `HealthOverview.previous_score` (delta du score global) + `domain_scores: list[DomainScore]` (environment/energy/battery, chacun avec `score`/`status`/`previous_score`/`note`).
+- Nouvel endpoint `GET /api/health/history?range=7d|30d|90d` → série quotidienne `global_score` + les 3 domaines, pour les deux graphiques d'évolution.
+- Poids domaine → score global : environment 40 % / energy 35 % / battery 25 % (mock, cf. `mocks/health.py`). Seuils de statut unifiés à 82/68 (mêmes seuils que la référence de design), corrige au passage un bug du mock (statut global ne passait jamais en "critical").
+- `ml/health.py` : stub `get_history()` ajouté + docstring mise à jour (contrat Phase 8 F, toujours non branché).
+
+### Réalisations
+- Backend : `models/health.py`, `mocks/health.py`, `ml/health.py`, `providers.py`, `api/health.py` mis à jour ; tests `test_health.py` étendus (domain_scores + statuts + `/history` 3 fenêtres + validation 422).
+- Frontend : `SiteHealth.jsx` réécrit pour consommer `api.healthOverview()` + `api.healthHistory(range)` via `useApi`/`ApiState` (plus aucune donnée inventée) ; sélecteur de fenêtre 7j/30j/90j partagé par les deux graphiques d'évolution. `siteHealthData.js` supprimé (mock devenu inutile). i18n FR/EN étendu (`vsLast`, `rangeLabel`, `d7/d30/d90`, `domainEnvironment/domainEnergy/domainBattery`).
+- `.claude/launch.json` créé (backend uvicorn + frontend vite) pour la vérification navigateur.
+- **Retour utilisateur (même session)** : suppression des sections « Détail des sous-scores » (jauges radiales, redondantes avec la carte sous-scores du hero) et « Par famille d'équipement » — la page se limite désormais au hero (score global + sous-scores domaine) et aux deux graphiques d'évolution. Composant `Gauge` local et import `EquipmentCard` retirés (code mort) ; clés i18n `detail`/`byFamily` retirées.
+
+### Validation
+- `pytest backend/tests/test_health.py` : **7/7 verts**. Suite complète backend : 44/45 (1 échec préexistant sans rapport, `test_ingestion_fidelity` — `openpyxl` absent de l'environnement Python utilisé pour la vérification).
+- `npm run build` OK. Navigateur (backend live + Vite) : hero score global 79.7/100 « À surveiller » -0.6, 3 sous-scores domaine avec delta + statut, jauges détail, cartes famille (STULZ/SOCOMEC/YANAN inchangées), 2 graphiques d'évolution — sélecteur 7j/30j/90j vérifié fonctionnel (refetch confirmé sur le réseau, réaffiche 30 points 30/06→28/07). FR↔EN vérifié. Aucune erreur console.
+- `npm test` (vitest) : échec d'environnement préexistant (`html-encoding-sniffer`/ESM, reproduit aussi sur le commit non modifié via `git stash`) — non lié à cette session.
+
+### En suspens
+- Pages Anomalies / Maintenance / Rappels : UI/UX à finaliser de la même manière (prochaines pages de la demande « page par page »).
+- `npm test` cassé par un souci d'environnement (dépendance ESM/CommonJS de jsdom) — à investiguer indépendamment de l'UI.
+- Décomposition par domaine actuellement mockée (poids 40/35/25 arbitraires) ; à reconsidérer si/quand la Phase 8 F (scoring composite réel) est débloquée.
+
+---
+
+## Session 6 — 2026-07-28 (suite) — Finalisation UI/UX Prévision (pannes prédites + prévision des sous-scores)
+
+**Demande** : refonte de la page Prévision — (1) cards « prochaines pannes prédites » par sous-score (timing + sévérité) en premier, (2) chart Global Health Score en second, (3) prévision des sous-scores en troisième.
+
+### Constat de départ
+Le contrat backend ne portait aucune notion de « panne prédite » (timing/sévérité), ni de prévision par famille (seul le score *courant* par famille existait, via `HealthOverview.sub_scores`, sans dimension temporelle). Le forecast existant (`/api/health/forecast`) est le modèle **environnemental réel** (HMM, seuils Tukey 26,75/28,65 °C sur température salle switch) — à ne pas confondre avec un score 0-100 ; ses `threshold_crossings` sont en fait déjà la donnée de « prochaine panne » pour STULZ/climatisation.
+
+### Décision
+- Sous-scores Forecast restent **par famille d'équipement** (STULZ/SOCOMEC/YANAN), conformément à CLAUDE.md §6 — pas de bascule vers la taxonomie par domaine utilisée sur Site Health (les deux vues coexistent, cf. `HealthDomain` note dans `models/health.py`).
+- Nouveau `PredictedFault` (family/label/predicted_at/severity/note) réutilise l'enum `Severity` (alert/critical) des anomalies plutôt que `HealthStatus` — sémantique « sévérité de panne » distincte de « statut de santé courant ». STULZ dérive du premier `threshold_crossing` du forecast réel ; SOCOMEC/YANAN sont mockés (aucune panne / alerte baseline) en attendant des modèles équivalents validés.
+- Nouveau `SubScoreForecastResponse` (par famille, mêmes `ForecastPoint` que le forecast global) sur le même `ForecastHorizon` (24h/7j/30j) que le chart dominant — un seul sélecteur d'horizon partagé pour toute la page.
+
+### Réalisations
+- Backend : `models/health.py` (+`PredictedFault(s)`, `SubScoreSeries`, `SubScoreForecastResponse`), `mocks/health.py` (constantes famille factorisées `_FAMILY_LABEL/_SCORE/_STATUS/_TREND/_NOTE`, `get_predicted_faults`, `get_subscore_forecast`, seeds déterministes remplaçant `hash()`), `ml/health.py` (stubs + docstring), `providers.py`, `api/health.py` (`GET /predicted-faults`, `GET /forecast/sub-scores`). Tests étendus (10 nouveaux cas).
+- Frontend : `Forecast.jsx` réécrit — section 1 cards « pannes prédites » (sévérité via `StatusBadge`, ou « aucune panne prévue » avec icône `CheckCircle2`) ; section 2 = chart existant inchangé (`TrendChart` + franchissements) ; section 3 = petits multiples `TrendChart` par famille (historique plein + prévision pointillée, réutilisation telle quelle du composant). `api/client.js` (+`predictedFaults`, `subScoreForecast`), i18n FR/EN (+`nextFault`, `nextFaultSub`, `noFaultPredicted`, `predictedAround`, `subScores` reformulé). `Forecast.test.jsx` mis à jour pour les nouveaux appels API (l'ancien `healthOverview` n'est plus utilisé sur cette page).
+
+### Validation
+- `pytest backend/tests/` : **57/58** (même échec préexistant `openpyxl`, sans rapport). `npm run build` OK.
+- Navigateur (backend live + Vite) : 3 sections dans l'ordre demandé ; STULZ affiche une vraie alerte à 7j (9 franchissements, cohérent avec le message sous le chart) et « aucune panne prévue » à 24h (aucun franchissement sur cette fenêtre) ; SOCOMEC toujours sain ; YANAN alerte baseline. Sélecteur d'horizon partagé vérifié : un clic refetch les 3 endpoints (`forecast`, `predicted-faults`, `forecast/sub-scores`) avec le nouvel horizon. FR↔EN vérifié. Aucune erreur console.
+- `npm test` (vitest) : toujours cassé par le même souci d'environnement préexistant (non lié).
+
+### En suspens
+- Pages Anomalies / Maintenance / Rappels restent à finaliser.
+- SOCOMEC/YANAN predicted-faults et sub-score forecast sont mockés (pas de modèle de prévision validé pour ces familles, contrairement à l'environnemental) — à remplacer si des modèles équivalents sont livrés.
+
+---
+
 ## Session 4 — 2026-07-27 — Architecture des données + pipeline livré + socle `storage/`
 
 **Demande** : penser l'intégration des données (historique + temps réel) avant de

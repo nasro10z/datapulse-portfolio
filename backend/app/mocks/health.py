@@ -10,18 +10,86 @@ from app.mocks.equipment import (
     STULZ_UNITS,
     YANAN_UNITS,
 )
+from app.models.anomalies import Severity
 from app.models.health import (
+    DomainScore,
+    EquipmentFamily,
     ForecastHorizon,
     ForecastPoint,
     ForecastResponse,
+    HealthDomain,
+    HealthHistoryPoint,
+    HealthHistoryResponse,
     HealthOverview,
     HealthStatus,
+    HistoryRange,
+    PredictedFault,
+    PredictedFaultsResponse,
     SubScore,
+    SubScoreForecastResponse,
+    SubScoreSeries,
     ThresholdCrossing,
     Trend,
 )
 
 _BASELINE_TEMP = 24.6  # °C moyen salle switch, sous le seuil mild_upper
+
+# Seuils de statut par score (0-100), alignés sur la référence de design Identity v2.
+_HEALTHY_MIN = 82.0
+_WATCH_MIN = 68.0
+
+# Poids des domaines dans le score global (somme = 100) — décomposition Site Health,
+# distincte de la décomposition par famille d'équipement (Forecast).
+_DOMAIN_WEIGHTS = {
+    HealthDomain.environment: 0.40,
+    HealthDomain.energy: 0.35,
+    HealthDomain.battery: 0.25,
+}
+
+# Scores de démonstration par domaine (courant, précédent) + note contextuelle.
+_DOMAIN_DEMO = {
+    HealthDomain.environment: (87.0, 85.0, "Temp 23,4 °C · HR 46 % · 10 salles dans la plage"),
+    HealthDomain.energy: (81.0, 83.0, "Charge onduleur 68 % · FP 0,98 · secteur stable"),
+    HealthDomain.battery: (66.0, 69.0, "2 chaînes · capacité UPS-2 en dégradation"),
+}
+
+# Démo par famille d'équipement (score courant, tendance) — décomposition Forecast.
+_FAMILY_LABEL = {
+    EquipmentFamily.stulz: "Climatisation — STULZ ASD 522 AS",
+    EquipmentFamily.socomec: "Onduleurs — SOCOMEC 200kVA",
+    EquipmentFamily.yanan: "Groupes électrogènes — YANAN",
+}
+_FAMILY_UNIT_COUNT = {
+    EquipmentFamily.stulz: len(STULZ_UNITS),
+    EquipmentFamily.socomec: len(SOCOMEC_UNITS),
+    EquipmentFamily.yanan: len(YANAN_UNITS),
+}
+_FAMILY_SCORE = {EquipmentFamily.stulz: 82.0, EquipmentFamily.socomec: 91.0, EquipmentFamily.yanan: 70.0}
+_FAMILY_STATUS = {
+    EquipmentFamily.stulz: HealthStatus.healthy,
+    EquipmentFamily.socomec: HealthStatus.healthy,
+    EquipmentFamily.yanan: HealthStatus.watch,
+}
+_FAMILY_TREND = {EquipmentFamily.stulz: Trend.stable, EquipmentFamily.socomec: Trend.up, EquipmentFamily.yanan: Trend.stable}
+_FAMILY_NOTE = {
+    EquipmentFamily.yanan: "Baseline en cours d'établissement (installés 2025) — score indicatif",
+}
+
+# Seeds fixes (déterministes, indépendants du hash aléatoire du process) par fenêtre.
+_RANGE_SEED = {"7d": 701, "30d": 730, "90d": 790}
+_HORIZON_SEED = {"24h": 124, "7d": 107, "30d": 130}
+
+
+def _status_for(score: float) -> HealthStatus:
+    if score >= _HEALTHY_MIN:
+        return HealthStatus.healthy
+    if score >= _WATCH_MIN:
+        return HealthStatus.watch
+    return HealthStatus.critical
+
+
+def _weighted(scores: dict[HealthDomain, float]) -> float:
+    return round(sum(scores[d] * w for d, w in _DOMAIN_WEIGHTS.items()), 1)
 
 
 def _now() -> datetime:
@@ -31,39 +99,72 @@ def _now() -> datetime:
 def get_overview() -> HealthOverview:
     sub_scores = [
         SubScore(
-            family="stulz",
-            label="Climatisation — STULZ ASD 522 AS",
-            score=82.0,
-            status=HealthStatus.healthy,
-            trend=Trend.stable,
-            unit_count=len(STULZ_UNITS),
-        ),
-        SubScore(
-            family="socomec",
-            label="Onduleurs — SOCOMEC 200kVA",
-            score=91.0,
-            status=HealthStatus.healthy,
-            trend=Trend.up,
-            unit_count=len(SOCOMEC_UNITS),
-        ),
-        SubScore(
-            family="yanan",
-            label="Groupes électrogènes — YANAN",
-            score=70.0,
-            status=HealthStatus.watch,
-            trend=Trend.stable,
-            unit_count=len(YANAN_UNITS),
-            note="Baseline en cours d'établissement (installés 2025) — score indicatif",
-        ),
+            family=family,
+            label=_FAMILY_LABEL[family],
+            score=_FAMILY_SCORE[family],
+            status=_FAMILY_STATUS[family],
+            trend=_FAMILY_TREND[family],
+            unit_count=_FAMILY_UNIT_COUNT[family],
+            note=_FAMILY_NOTE.get(family),
+        )
+        for family in EquipmentFamily
     ]
-    global_score = round(sum(s.score * s.unit_count for s in sub_scores)
-                         / sum(s.unit_count for s in sub_scores), 1)
+    domain_scores = [
+        DomainScore(
+            domain=domain,
+            score=score,
+            status=_status_for(score),
+            previous_score=previous,
+            note=note,
+        )
+        for domain, (score, previous, note) in _DOMAIN_DEMO.items()
+    ]
+    global_score = _weighted({d.domain: d.score for d in domain_scores})
+    previous_score = _weighted({d.domain: d.previous_score for d in domain_scores})
     return HealthOverview(
         global_score=global_score,
-        status=HealthStatus.healthy if global_score >= 75 else HealthStatus.watch,
+        previous_score=previous_score,
+        status=_status_for(global_score),
         sub_scores=sub_scores,
+        domain_scores=domain_scores,
         updated_at=_now(),
     )
+
+
+_HISTORY_CONFIG = {
+    HistoryRange.d7: (timedelta(days=1), 7),
+    HistoryRange.d30: (timedelta(days=1), 30),
+    HistoryRange.d90: (timedelta(days=1), 90),
+}
+
+
+def get_history(range_: HistoryRange) -> HealthHistoryResponse:
+    """Historique quotidien par domaine, se terminant exactement sur les scores
+    courants (marche aléatoire seedée en amont pour rester stable entre appels)."""
+    rng = random.Random(_RANGE_SEED[range_.value])
+    step, n = _HISTORY_CONFIG[range_]
+    now = _now()
+
+    series: dict[HealthDomain, list[float]] = {}
+    for domain, (current, _previous, _note) in _DOMAIN_DEMO.items():
+        walk = [current]
+        for _ in range(n - 1):
+            walk.append(max(0.0, min(100.0, walk[-1] + rng.uniform(-1.4, 1.4))))
+        walk.reverse()  # du plus ancien au plus récent
+        walk[-1] = current  # se termine exactement sur le score courant
+        series[domain] = walk
+
+    points = [
+        HealthHistoryPoint(
+            timestamp=now - (n - 1 - i) * step,
+            global_score=_weighted({d: series[d][i] for d in HealthDomain}),
+            environment=round(series[HealthDomain.environment][i], 1),
+            energy=round(series[HealthDomain.energy][i], 1),
+            battery=round(series[HealthDomain.battery][i], 1),
+        )
+        for i in range(n)
+    ]
+    return HealthHistoryResponse(range=range_, points=points)
 
 
 _HORIZON_CONFIG = {
@@ -107,3 +208,74 @@ def get_forecast(horizon: ForecastHorizon) -> ForecastResponse:
         if p.is_forecast and p.upper >= MILD_UPPER
     ]
     return ForecastResponse(horizon=horizon, points=points, threshold_crossings=crossings)
+
+
+_HEALTH_TO_SEVERITY = {HealthStatus.watch: Severity.alert, HealthStatus.critical: Severity.critical}
+
+
+def get_predicted_faults(horizon: ForecastHorizon) -> PredictedFaultsResponse:
+    """Prochaine panne estimée par famille — couche d'aide à la décision, pas une
+    alarme automatique. STULZ (climatisation) est dérivé du forecast environnemental
+    réel (HMM, seuils Tukey) ; SOCOMEC/YANAN sont des démonstrations le temps que
+    des modèles de prévision équivalents soient validés pour ces familles."""
+    env_forecast = get_forecast(horizon)
+    first_crossing = next(iter(env_forecast.threshold_crossings), None)
+
+    step, _, n_fcst = _HORIZON_CONFIG[horizon]
+    faults = [
+        PredictedFault(
+            family=EquipmentFamily.stulz,
+            label=_FAMILY_LABEL[EquipmentFamily.stulz],
+            predicted_at=first_crossing.timestamp if first_crossing else None,
+            severity=_HEALTH_TO_SEVERITY[first_crossing.severity] if first_crossing else None,
+            note=(
+                "Basé sur le modèle de prévision température (HMM, seuils Tukey 26,75 / 28,65 °C)."
+                if first_crossing else
+                "Aucun franchissement de seuil de température prévu sur cet horizon."
+            ),
+        ),
+        PredictedFault(
+            family=EquipmentFamily.socomec,
+            label=_FAMILY_LABEL[EquipmentFamily.socomec],
+            predicted_at=None,
+            severity=None,
+            note="Aucune dégradation prévue sur cet horizon.",
+        ),
+        PredictedFault(
+            family=EquipmentFamily.yanan,
+            label=_FAMILY_LABEL[EquipmentFamily.yanan],
+            predicted_at=_now() + step * max(1, n_fcst // 2),
+            severity=Severity.alert,
+            note="Baseline en cours d'établissement (installés 2025) — estimation indicative.",
+        ),
+    ]
+    return PredictedFaultsResponse(horizon=horizon, faults=faults)
+
+
+def get_subscore_forecast(horizon: ForecastHorizon) -> SubScoreForecastResponse:
+    """Prévision de score (0-100) par famille d'équipement, même fenêtre que le
+    forecast global — historique plein + prévision avec bande élargie."""
+    step, n_hist, n_fcst = _HORIZON_CONFIG[horizon]
+    now = _now()
+    seed = _HORIZON_SEED[horizon.value]
+
+    series = []
+    for offset, family in enumerate(EquipmentFamily):
+        rng = random.Random(seed + offset * 13)
+        baseline = _FAMILY_SCORE[family]
+        points: list[ForecastPoint] = []
+        for i in range(-n_hist, n_fcst + 1):
+            ts = now + i * step
+            drift = -0.03 * max(0, i) if family != EquipmentFamily.socomec else 0.02 * max(0, i)
+            value = max(0.0, min(100.0, baseline + drift + rng.uniform(-1.2, 1.2)))
+            is_forecast = i > 0
+            band = 0.5 if not is_forecast else 1.2 + 2.5 * (i / n_fcst)
+            points.append(ForecastPoint(
+                timestamp=ts,
+                value=round(value, 1),
+                lower=round(max(0.0, value - band), 1),
+                upper=round(min(100.0, value + band), 1),
+                is_forecast=is_forecast,
+            ))
+        series.append(SubScoreSeries(family=family, label=_FAMILY_LABEL[family], points=points))
+    return SubScoreForecastResponse(horizon=horizon, series=series)

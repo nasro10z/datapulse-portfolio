@@ -25,7 +25,15 @@ from app.models.anomalies import (
     HistogramBucket,
     Severity,
 )
-from app.models.health import ForecastHorizon, ForecastResponse, HealthOverview
+from app.models.health import (
+    ForecastHorizon,
+    ForecastResponse,
+    HealthHistoryResponse,
+    HealthOverview,
+    HistoryRange,
+    PredictedFaultsResponse,
+    SubScoreForecastResponse,
+)
 from app.services import anomaly_aggregation as agg
 
 
@@ -45,6 +53,18 @@ def health_overview() -> HealthOverview:
 
 def health_forecast(horizon: ForecastHorizon) -> ForecastResponse:
     return _health_source().get_forecast(horizon)
+
+
+def health_history(range_: HistoryRange) -> HealthHistoryResponse:
+    return _health_source().get_history(range_)
+
+
+def health_predicted_faults(horizon: ForecastHorizon) -> PredictedFaultsResponse:
+    return _health_source().get_predicted_faults(horizon)
+
+
+def health_subscore_forecast(horizon: ForecastHorizon) -> SubScoreForecastResponse:
+    return _health_source().get_subscore_forecast(horizon)
 
 
 # ---- Anomalies (source brute + agrégations partagées) ----

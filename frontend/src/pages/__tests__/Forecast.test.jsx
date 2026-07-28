@@ -8,7 +8,8 @@ import { api } from '../../api/client'
 vi.mock('../../api/client', () => ({
   api: {
     healthForecast: vi.fn(),
-    healthOverview: vi.fn(),
+    predictedFaults: vi.fn(),
+    subScoreForecast: vi.fn(),
   },
 }))
 
@@ -22,33 +23,49 @@ const forecast = (horizon) => ({
   threshold_crossings: [],
 })
 
-const overview = {
-  global_score: 82, status: 'healthy', updated_at: '2026-07-26T10:00:00Z',
-  sub_scores: [
-    { family: 'stulz', label: 'Climatisation', score: 82, status: 'healthy', trend: 'stable', unit_count: 10 },
+const faults = (horizon) => ({
+  horizon,
+  faults: [
+    { family: 'stulz', label: 'Climatisation', predicted_at: null, severity: null, note: 'Aucun franchissement prévu.' },
+    { family: 'socomec', label: 'Onduleurs', predicted_at: null, severity: null, note: 'Aucune dégradation prévue.' },
+    { family: 'yanan', label: 'Groupes électrogènes', predicted_at: '2026-07-27T12:00:00Z', severity: 'alert', note: 'Baseline indicative.' },
   ],
-}
+})
+
+const subScoreForecast = (horizon) => ({
+  horizon,
+  series: [
+    { family: 'stulz', label: 'Climatisation', points: forecast(horizon).points },
+    { family: 'socomec', label: 'Onduleurs', points: forecast(horizon).points },
+    { family: 'yanan', label: 'Groupes électrogènes', points: forecast(horizon).points },
+  ],
+})
 
 beforeEach(() => {
   api.healthForecast.mockImplementation((h) => Promise.resolve(forecast(h)))
-  api.healthOverview.mockResolvedValue(overview)
+  api.predictedFaults.mockImplementation((h) => Promise.resolve(faults(h)))
+  api.subScoreForecast.mockImplementation((h) => Promise.resolve(subScoreForecast(h)))
 })
 
 describe('Parcours : lire le forecast', () => {
-  it('rend le graphique et les sous-scores', async () => {
+  it('rend les pannes prédites, le graphique global et les sous-scores', async () => {
     render(<Forecast />)
-    // le chart SVG est rendu une fois les points chargés
     await waitFor(() => expect(document.querySelector('svg')).toBeInTheDocument())
-    expect(await screen.findByText('Climatisation')).toBeInTheDocument()
+    expect(await screen.findAllByText('Climatisation')).toHaveLength(2) // carte panne + carte forecast
+    expect(screen.getByText('Aucune panne prévue')).toBeInTheDocument()
     expect(api.healthForecast).toHaveBeenCalledWith('24h')
+    expect(api.predictedFaults).toHaveBeenCalledWith('24h')
+    expect(api.subScoreForecast).toHaveBeenCalledWith('24h')
   })
 
-  it('recharge la prévision au changement d’horizon', async () => {
+  it('recharge tout au changement d’horizon', async () => {
     const user = userEvent.setup()
     render(<Forecast />)
     await waitFor(() => expect(document.querySelector('svg')).toBeInTheDocument())
 
     await user.click(screen.getByRole('button', { name: '7 jours' }))
     await waitFor(() => expect(api.healthForecast).toHaveBeenCalledWith('7d'))
+    expect(api.predictedFaults).toHaveBeenCalledWith('7d')
+    expect(api.subScoreForecast).toHaveBeenCalledWith('7d')
   })
 })

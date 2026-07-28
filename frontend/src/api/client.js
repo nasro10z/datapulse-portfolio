@@ -18,6 +18,9 @@ export const api = {
   // Health
   healthOverview: () => request('/api/health/overview'),
   healthForecast: (horizon = '24h') => request(`/api/health/forecast?horizon=${horizon}`),
+  healthHistory: (range = '7d') => request(`/api/health/history?range=${range}`),
+  predictedFaults: (horizon = '24h') => request(`/api/health/predicted-faults?horizon=${horizon}`),
+  subScoreForecast: (horizon = '24h') => request(`/api/health/forecast/sub-scores?horizon=${horizon}`),
 
   // Anomalies
   anomalies: (params = {}) => {
