@@ -7,7 +7,12 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # Chemin absolu vers backend/.env (où vit `.env.example`) : un chemin relatif
+    # serait résolu depuis le répertoire de lancement, et `uvicorn --app-dir backend`
+    # démarre depuis la racine du dépôt — le fichier n'était alors jamais lu.
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_ROOT / ".env", env_file_encoding="utf-8"
+    )
 
     # Source des données métier (santé, forecast, anomalies) :
     #   "mock" — générateurs seedés (Phases 1–7, défaut)

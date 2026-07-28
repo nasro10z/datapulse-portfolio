@@ -119,6 +119,16 @@ export default function Anomalies() {
     [options.data],
   )
 
+  // La fenêtre se termine à la fin des DONNÉES observées, pas à l'heure courante
+  // (export historique figé) : sans cette date affichée, un « 0 anomalie » se lit
+  // comme une page cassée au lieu de « rien à signaler sur la période ».
+  const windowSubtitle = windowStats.data?.reference_at
+    ? t('anomalies.windowUpTo', {
+        w: wLabel(window_),
+        d: new Date(windowStats.data.reference_at).toLocaleString(locale),
+      })
+    : wLabel(window_)
+
   const pieData = useMemo(() => {
     if (!windowStats.data) return []
     return Object.entries(windowStats.data.by_dimension).map(([k, v]) => ({
@@ -161,7 +171,7 @@ export default function Anomalies() {
   return (
     <div className="flex flex-col gap-6">
       {/* 1. Total (fenêtre) + tendance, taux, famille la plus contributrice */}
-      <Panel title={t('anomalies.overview')} subtitle={wLabel(window_)} actions={windowSelector}>
+      <Panel title={t('anomalies.overview')} subtitle={windowSubtitle} actions={windowSelector}>
         <ApiState loading={windowStats.loading} error={windowStats.error}>
           {windowStats.data && (
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
@@ -182,7 +192,14 @@ export default function Anomalies() {
       {/* 2. Pie chart : quel modèle génère le plus d'anomalies sur la fenêtre */}
       <Panel title={t('anomalies.pieTitle')} subtitle={t('anomalies.pieSub', { w: wLabel(window_) })}>
         <ApiState loading={windowStats.loading} error={windowStats.error}>
-          {windowStats.data && (
+          {/* Total nul : un donut vide n'affiche qu'une légende orpheline —
+              on dit explicitement qu'il n'y a rien à répartir. */}
+          {windowStats.data && windowStats.data.total === 0 && (
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6, padding: '24px 0' }}>
+              {t('anomalies.noneInWindow')}
+            </p>
+          )}
+          {windowStats.data && windowStats.data.total > 0 && (
             <div style={{ height: 240 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

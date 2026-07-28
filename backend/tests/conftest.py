@@ -13,6 +13,10 @@ os.environ["APP_DB_PATH"] = str(_TMP_DIR / "app.db")
 # Base analytique jetable : les tests ne touchent pas la vraie base gold peuplée
 # (source « live » = lecture gold ; ici gold vide → réponses vides mais 200).
 os.environ["ANALYTICS_DB_PATH"] = str(_TMP_DIR / "analytics.db")
+# Source des données figée pour la suite : un `backend/.env` local en `live`
+# (poste de dev branché sur le pipeline réel) ne doit pas changer le résultat des
+# tests. Les scénarios live sont activés explicitement par la fixture `live_source`.
+os.environ["DATA_SOURCE"] = "mock"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

@@ -9,6 +9,12 @@ ici — le package mlops-api les recalcule en mémoire au moment de la détectio
 (`compute_rolling_features`, une seule source de vérité train/predict). Silver
 porte donc les lectures propres + le rattachement au segment, ce qui suffit à
 `etl/detect`. On pourra matérialiser les features plus tard si besoin de perf.
+
+Tables :
+  - `th_clean`    : lectures température/humidité dédupliquées + segmentées ;
+  - `scada_clean` : journal d'alarmes SCADA + UPS dédupliqué et catégorisé —
+                    équivalent du fichier `msc10_combined_ups.csv` utilisé par le
+                    notebook de scoring, produit ici par LEUR `clean_and_dedupe`.
 """
 from datetime import datetime
 
@@ -33,4 +39,27 @@ class ThClean(Base):
     segment_position: Mapped[int] = mapped_column(Integer)
     is_discontinuity: Mapped[bool] = mapped_column(Boolean, default=False)
     sensor: Mapped[str] = mapped_column(String(48), default="SITE01_SALLE_SWITCH")
+    computed_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ScadaClean(Base):
+    """Ligne de journal SCADA/UPS nettoyée, dédupliquée et catégorisée.
+
+    Sortie de `ml.alarm_anomaly.data_loading.clean_and_dedupe` (dédup sur
+    `(log_time, message)`, tri chronologique, catégorie déduite du message) : c'est
+    l'entrée du scoring énergie/batterie, qui compte les alarmes par heure.
+
+    Pas de clé naturelle utilisable : deux alarmes distinctes peuvent partager la
+    seconde. La clé est donc technique, la table étant remplacée en bloc à chaque
+    exécution de l'ETL.
+    """
+
+    __tablename__ = "scada_clean"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    log_time: Mapped[datetime] = mapped_column(DateTime, index=True)
+    send_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    state: Mapped[str | None] = mapped_column(String(8), nullable=True)   # A active / D cleared
+    message: Mapped[str] = mapped_column(String(512))
+    category: Mapped[str | None] = mapped_column(String(16), nullable=True)  # UPS | CLIM | ENERGY | OTHER
     computed_at: Mapped[datetime] = mapped_column(DateTime)

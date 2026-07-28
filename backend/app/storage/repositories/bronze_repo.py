@@ -69,6 +69,16 @@ def read_temp_humidity(session: Session) -> pd.DataFrame:
     return df
 
 
+def read_scada_log(session: Session) -> pd.DataFrame:
+    """Lecture bronze SCADA/UPS (entrée du transform `scada_clean`)."""
+    stmt = select(RawScadaLog.state, RawScadaLog.log_time,
+                  RawScadaLog.message, RawScadaLog.send_time)
+    df = pd.read_sql(stmt, session.connection())
+    df["log_time"] = pd.to_datetime(df["log_time"])
+    df["send_time"] = pd.to_datetime(df["send_time"])
+    return df
+
+
 def get_watermark(session: Session, table: str) -> IngestWatermark | None:
     return session.get(IngestWatermark, table)
 

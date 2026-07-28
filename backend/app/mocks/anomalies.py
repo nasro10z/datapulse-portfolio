@@ -71,3 +71,9 @@ def raw_episodes() -> list[AnomalyEpisode]:
 
 def window_days() -> int:
     return WINDOW_DAYS
+
+
+def reference_now() -> datetime:
+    """Fin de la période observée. Les épisodes mockés sont générés autour de
+    l'heure courante : la borne des fenêtres glissantes est donc bien `now`."""
+    return datetime.now(timezone.utc)

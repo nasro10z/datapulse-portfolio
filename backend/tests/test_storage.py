@@ -26,8 +26,9 @@ def test_all_layer_tables_created(tmp_path):
     tables = set(Base.metadata.tables)
     assert {
         "raw_temp_humidity", "raw_scada_log", "ingest_watermark",  # bronze
-        "th_clean",                                                 # silver
-        "anomaly_episode", "health_score", "forecast_point",        # gold
+        "th_clean", "scada_clean",                                  # silver
+        "anomaly_episode", "health_score_hourly",                   # gold
+        "health_score", "forecast_point",
     } <= tables
     # Les tables existent réellement dans le fichier
     from sqlalchemy import inspect

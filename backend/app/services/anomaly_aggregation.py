@@ -143,7 +143,13 @@ def _naive(dt: datetime) -> datetime:
 
 def compute_window_stats(episodes: list[AnomalyEpisode], window: AnomalyWindow, now: datetime) -> WindowStats:
     """Total + tendance (vs période précédente de même durée) + taux + famille
-    top + répartition par dimension, sur une fenêtre glissante se terminant à `now`."""
+    top + répartition par dimension, sur une fenêtre glissante se terminant à `now`.
+
+    `now` est la **fin de la période observée**, fournie par la source (cf.
+    `reference_now()`), pas l'heure de la requête : sur un export historique figé,
+    une fenêtre calée sur l'horloge tombe des semaines après la dernière donnée et
+    ne peut que renvoyer zéro.
+    """
     now = _naive(now)
     hours = _WINDOW_HOURS[window]
     cur_start = now - timedelta(hours=hours)
@@ -169,4 +175,5 @@ def compute_window_stats(episodes: list[AnomalyEpisode], window: AnomalyWindow, 
         top_family=top_family,
         top_family_count=by_family.get(top_family, 0) if top_family else 0,
         by_dimension={d: sum(1 for e in current if e.dimension == d) for d in AnomalyDimension},
+        reference_at=now,
     )

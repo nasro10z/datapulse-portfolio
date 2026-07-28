@@ -53,6 +53,25 @@ Vocabulaire *medallion* (raffinage progressif du brut vers le prêt-à-servir).
 | **silver** | le nettoyé | sortie du préprocessing validé : dédup, gaps >125s classés, segments, rolling stats | `etl/transform` | oui (depuis bronze) |
 | **gold** | le prêt-à-servir | résultat métier = ce que l'API renvoie : épisodes, scores, forecast, labels de validation | `etl/detect,score,forecast` | oui (depuis silver) |
 
+### Tables par couche, et d'où elles viennent
+
+| Couche | Table | Origine |
+|---|---|---|
+| bronze | `raw_temp_humidity` | `temp_humid_msc10.csv` (137 970 lignes) |
+| bronze | `raw_scada_log` | `logs_msc10.xlsx` + `ups_socomec1_msc10_events.csv` (3 274) |
+| silver | `th_clean` | dédup + segmentation (107 047) — reproduit `temp_humid_last.csv` |
+| silver | `scada_clean` | `clean_and_dedupe` (2 569) — reproduit `msc10_combined_ups.csv` **à la ligne près** |
+| gold | `anomaly_episode` | HMM environnemental (388 épisodes, par salle) |
+| gold | `health_score_hourly` | scoring `health_scores.ipynb` (2 137 heures) — équivalent de `site_health_scores.csv` |
+| gold | `health_score` | instantané servi : score global + 3 domaines |
+| gold | `forecast_point` | trajectoires 24 h / 7 j / 30 j (164 points) |
+
+> **Les deux CSV du notebook de scoring descendent bien la chaîne** :
+> `temp_humid_last.csv` → bronze → `th_clean` → scoring ; `msc10_combined_ups.csv`
+> → bronze → `scada_clean` → scoring. Aucun des deux n'est lu directement par
+> l'ETL : ce sont les **fichiers de référence** contre lesquels les golden tests
+> vérifient que notre chaîne reproduit bien ce que le notebook consommait.
+
 Exemple d'un même point qui descend les couches :
 
 | Couche | Donnée |
@@ -131,9 +150,10 @@ du stockage. C'est le contrat stable.
 
 ```
 storage/repositories/
-  bronze_repo.py   # append_temp_humidity(df), get_since(ts), get_watermark(table), set_watermark(...)
-  silver_repo.py   # upsert_segments(df), upsert_rolling(df), get_segment(id), get_window(from,to)
-  gold_repo.py     # replace_episodes(list), get_episodes(), upsert_health(...), get_overview(), ...
+  bronze_repo.py   # replace_temp_humidity(df), replace_scada_log(df), read_*(), watermark
+  silver_repo.py   # replace_th_clean(df), replace_scada_clean(df), read_*(), span_days()
+  gold_repo.py     # replace_episodes / replace_health_hourly / replace_health_scores
+                   # / replace_forecast_points  + les lectures correspondantes
 ```
 
 - `etl/` lit/écrit **uniquement** via ces repos → il ne connaît pas le SQL ni le
@@ -231,22 +251,64 @@ buffer en RAM de `EnvironmentalPredictor` est remplacé par la lecture du bronze
 
 ## 9. Feuille de route d'implémentation (non-cassante, mock reste défaut)
 
+### Le score de santé (étape F) — ce qui a été porté du notebook
+
+Le scoring vit dans `app/ml/health_score/` (**maths pures**, aucune I/O), portage
+fidèle de `health_scores.ipynb` :
+
+```
+risque_base    = 100 × Σ(poids × terme)                      par domaine
+risque_final   = risque_base × (1 + wa·anomalie) × (1 + wm·risque_PM)
+risque_énergie = compression douce + plancher si coupure persistante
+risque_global  = Σ(poids_domaine × risque_domaine)     santé = 100 − risque
+```
+
+Trois domaines, une source chacun : **environnement** (silver `th_clean`),
+**énergie** et **batterie** (silver `scada_clean`, par mots-clés d'alarme).
+Fenêtre de calcul = **intersection** des trois sources — sur l'union, un 0 dans
+les features énergie/batterie voudrait dire « aucune alarme » alors qu'il veut
+dire « aucune donnée », et le site paraîtrait parfaitement sain pendant des mois.
+
+La fidélité est **prouvée, pas supposée** :
+`tests/test_health_score.py::test_scoring_reproduces_notebook_output` compare la
+sortie aux scores du notebook (`site_health_scores_v1_0.csv`) sur les entrées
+livrées → égalité exacte (< 1e-6). C'est ce test qui autorise à faire évoluer
+`ml/health_score` sans reperdre la validation faite par l'équipe data science.
+
+**Prévision** (`ml/health_score/forecasting.py`) : cible = santé globale à +6 h.
+Trois candidats sont entraînés (persistance, régression linéaire, gradient
+boosting) et **le meilleur sur la validation est retenu** — sur ces données c'est
+la persistance, conformément au notebook où aucun modèle ne la bat. Au-delà de
++6 h, la trajectoire vient d'un déroulé récursif à conditions inchangées (seuls le
+calendrier et le risque de PM évoluent), avec une bande qui s'élargit en √pas à
+partir de l'écart-type des résidus de test.
+
+### Lancer le pipeline
+
+```
+python -m app.etl.run --train      # tout : bronze → silver → gold (+ réentraînement)
+python -m app.etl.run --skip-ingest  # repart du bronze déjà chargé
+```
+
+Chaque étape remplace intégralement sa cible : rejouer le pipeline ne duplique
+rien et ne laisse pas d'état à nettoyer.
+
 | Étape | Livrable | Dépend de | Statut |
 |---|---|---|---|
-| A | `storage/` : `analytics_db.py` + schémas bronze/silver/gold + repositories (testable à vide) | — | prêt à démarrer |
-| B | `ml/` : intégrer le package `mlops-api` en librairie (fonctions + artefacts) | package livré | **débloqué** (livré) |
-| C | `etl/ingest` : seed bronze depuis `datapulse.db`/CSV (temp/hum) ; `db/queries.py` → `etl/ingest` pour la source PG | données temp/hum **présentes** ; SCADA brut + PG à obtenir | partiel |
-| D | `etl/transform` (bronze→silver) en réutilisant `preprocessing.py` du package | A, B, C | — |
-| E | `etl/detect` : dérouler les prédicteurs → **regrouper en `AnomalyEpisode`** → gold | B, D | mapping à écrire |
-| F | `etl/score,forecast` : `gold.health_scores` + `gold.forecast_points` | D, E | scoring composite à définir |
-| G | `providers` live → `gold_repo` ; retrait des stubs `NotImplementedError` | A, E, F | — |
-| H | `etl/incremental` + watermark + job périodique (temps réel) | D–F | différé |
-| I | Rebranchement Santé du site sur l'API | G | — |
+| A | `storage/` : `analytics_db.py` + schémas bronze/silver/gold + repositories | — | **fait** |
+| B | `ml/` : package `mlops-api` intégré en librairie (fonctions + artefacts) | package livré | **fait** |
+| C | `etl/ingest` : bronze depuis les CSV/XLSX bruts (temp/hum + SCADA) | données fournies | **fait** |
+| D | `etl/transform` (bronze→silver) : `th_clean` + `scada_clean` | A, B, C | **fait** |
+| E | `etl/detect` : HMM déroulé → `AnomalyEpisode` (par salle) → gold | B, D | **fait** (388 épisodes) |
+| F | `etl/score,forecast` : `gold.health_score_hourly` + `health_score` + `forecast_point` | D, E | **fait** (2 137 h, 164 points) |
+| G | `providers` live → `gold_repo` ; plus aucun `NotImplementedError` | A, E, F | **fait** (5 routes santé + anomalies) |
+| H | `etl/incremental` + watermark + job périodique (temps réel) | D–F | différé — pas de flux source |
+| I | Rebranchement Santé du site sur l'API | G | **fait** (vérifié en navigateur) |
 
 **Bloquant restant** (le pipeline **et** les données sont fournis) :
 - **Flux temps réel** : pas de source live (PG non joignable) → l'incrémental (H)
   attend qu'un flux ou des exports CSV réguliers soient mis en place. L'historique
   (backfill sur CSV) fonctionne dès maintenant.
 
-Les étapes **A → G + I** peuvent démarrer : package livré, données temp/humidité
-(107k lignes) + CSV SCADA fournis.
+Les étapes **A → G + I** sont **faites** : le pipeline tourne de bout en bout sur
+les données réelles et `DATA_SOURCE=live` sert du calculé, plus des mocks.

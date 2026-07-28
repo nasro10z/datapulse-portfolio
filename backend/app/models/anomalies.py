@@ -103,3 +103,8 @@ class WindowStats(BaseModel):
     top_family: str | None = None
     top_family_count: int = 0
     by_dimension: dict[AnomalyDimension, int]
+    # Fin de la fenêtre réellement utilisée = fin de la période observée, pas
+    # l'heure courante. Sur un export historique figé, les deux diffèrent de
+    # plusieurs semaines : sans cette date, un « 0 anomalie » se lit comme une
+    # page cassée alors qu'il veut dire « rien à signaler sur la période ».
+    reference_at: datetime

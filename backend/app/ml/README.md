@@ -17,9 +17,33 @@ modèles chargent et prédisent. `model_registry.py` (glue de LEUR API FastAPI) 
 copié pour référence mais **non utilisé** — DataPulse a son propre seam
 (`app/providers.py`) ; il porte un import obsolète et sera retiré/adapté en G.
 
-Les stubs `anomalies.py` / `health.py` ci-dessous restent le **contrat** appelé par
-`providers` : ils seront implémentés (étapes E–G) pour dérouler ces prédicteurs sur
-le bronze et produire le gold.
+`anomalies.py` / `health.py` sont le **contrat** appelé par `providers` — tous deux
+**implémentés** : ils lisent le gold précalculé par l'ETL (aucun modèle chargé sur
+le chemin de requête).
+
+## Package `health_score/` — score de santé du site (portage notebook)
+
+Portage du notebook `health_scores.ipynb` de l'équipe data science, en **maths
+pures** (DataFrame → DataFrame, aucune I/O) :
+
+| Module | Rôle |
+|---|---|
+| `config.py` | poids v1.0, mots-clés d'alarme, dates/intervalles de PM, seuils de statut, bornes de plausibilité capteur |
+| `features.py` | helpers (décroissance, saturation, durée continue, risque PM) + features horaires environnement / énergie / batterie |
+| `scoring.py` | risques de base → calibration énergie → score global, domaine dominant, statut, priorité, action conseillée |
+| `forecasting.py` | features de prévision, entraînement des candidats, sélection sur validation, déroulé récursif |
+
+**Fidélité prouvée** : `tests/test_health_score.py::test_scoring_reproduces_notebook_output`
+compare la sortie aux scores du notebook (`site_health_scores_v1_0.csv`) sur les
+entrées livrées → égalité exacte. C'est ce test qui permet de faire évoluer ce
+package sans reperdre la validation faite par l'équipe data science.
+
+**Prévision** : la cible validée est la santé globale à **+6 h**. Trois candidats
+(persistance, régression linéaire, gradient boosting) sont entraînés et le meilleur
+**sur la validation** est retenu — sur ces données c'est la persistance, comme dans
+le notebook où aucun modèle ne la bat. Au-delà de +6 h : déroulé récursif à
+conditions inchangées, bande élargie en √pas. Artefacts + métriques des trois
+candidats dans `models/health_forecast/`.
 
 ## Le seam mock ↔ live (Phase 8)
 
@@ -34,7 +58,7 @@ DATA_SOURCE=live   # pipeline ML validé (package mlops-api) sur données CSV
 Les routes n'importent jamais `mocks/` ni `ml/` directement. Brancher le pipeline
 réel = implémenter les stubs ci-dessous, pas toucher aux routes.
 
-## Contrat à implémenter
+## Le contrat (implémenté — lecture gold)
 
 La source ne produit que le **brut** ; surcharge de statut, filtrage et
 agrégations (stats, histogramme) sont partagés et vivent dans
@@ -45,8 +69,14 @@ agrégations (stats, histogramme) sont partagés et vivent dans
     courante (statut calculé, avant surcharge utilisateur).
   - `window_days() -> int` — fenêtre d'observation réelle (taux d'anomalies).
 - `ml/health.py`
-  - `get_overview() -> HealthOverview` — score global + sous-scores par famille.
-  - `get_forecast(horizon) -> ForecastResponse` — historique + prévision + bande.
+  - `get_overview()` — score global + sous-scores + scores par domaine.
+  - `get_history(range_)` — série quotidienne (7 / 30 / 90 j).
+  - `get_forecast(horizon)` — historique + prévision + bande + franchissements.
+  - `get_predicted_faults(horizon)` — fenêtre de risque par domaine.
+  - `get_subscore_forecast(horizon)` — séries par domaine.
+
+Gold vide (ETL jamais lancé) → `NotImplementedError` avec la marche à suivre, donc
+501 côté API : jamais de zéros qui passeraient pour des mesures.
 
 Les IDs d'épisode doivent être **stables** d'un appel à l'autre : les actions
 utilisateur (acquitter/résoudre) sont persistées par id (`db/tables.AnomalyAction`).

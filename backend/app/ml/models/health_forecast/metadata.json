@@ -1,0 +1,64 @@
+{
+  "score_version": "health_score_v1.0",
+  "weight_version": "v1.0",
+  "trained_at": "2026-07-28T22:52:07.085784+00:00",
+  "selected_model": "persistence",
+  "horizon_hours": 6,
+  "n_features": 70,
+  "n_rows": {
+    "train": 1474,
+    "validation": 316,
+    "test": 317
+  },
+  "drop_threshold": 0.15000000000000002,
+  "residual_std": 10.143906102012538,
+  "metrics": {
+    "persistence": {
+      "validation_MAE": 6.440442770769564,
+      "model": "persistence",
+      "MAE": 6.123735063775254,
+      "RMSE": 10.146988550798525,
+      "R2": 0.27354987575714085,
+      "high_risk_precision": 0.3333333333333333,
+      "high_risk_recall": 0.3333333333333333,
+      "predicted_min": 43.16261478026972,
+      "predicted_max": 98.28132615400625
+    },
+    "linear": {
+      "validation_MAE": 6.611722344102648,
+      "model": "linear",
+      "MAE": 5.940483609002992,
+      "RMSE": 9.422595661318791,
+      "R2": 0.373569965261597,
+      "high_risk_precision": 1.0,
+      "high_risk_recall": 0.13333333333333333,
+      "predicted_min": 58.25080904459034,
+      "predicted_max": 98.37543692672457
+    },
+    "gradient_boosting": {
+      "validation_MAE": 11.031611706637543,
+      "model": "gradient_boosting",
+      "MAE": 9.86060615695704,
+      "RMSE": 11.404186979723589,
+      "R2": 0.08238581141716828,
+      "high_risk_precision": 0.8,
+      "high_risk_recall": 0.26666666666666666,
+      "predicted_min": 55.17285469717431,
+      "predicted_max": 90.70901005773962
+    },
+    "selected_model": "persistence",
+    "mae_improvement_vs_persistence": 0.0,
+    "drop_classifier": {
+      "model": "RandomForest (test)",
+      "threshold": 0.15000000000000002,
+      "precision": 0.09574468085106383,
+      "recall": 0.6428571428571429,
+      "f1": 0.16666666666666666,
+      "roc_auc": 0.5667325753830945,
+      "pr_auc": 0.09935470296275555,
+      "predicted_alerts": 188,
+      "actual_events": 28,
+      "selected_on_validation_f1": 0.2719298245614035
+    }
+  }
+}

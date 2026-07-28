@@ -115,3 +115,39 @@ def test_window_stats_7d_covers_at_least_as_much_as_24h(client):
 def test_window_stats_invalid_window_rejected(client):
     r = client.get("/api/anomalies/window-stats", params={"window": "30d"})
     assert r.status_code == 422
+
+
+def test_window_is_anchored_on_observed_data_not_on_the_clock():
+    """La fenêtre se termine à la fin des données, pas à l'heure de la requête.
+
+    Sur un export historique figé (données arrêtées il y a des semaines), une
+    fenêtre calée sur l'horloge tombe entièrement après la dernière donnée et ne
+    peut afficher que zéro — indiscernable d'un pipeline en panne.
+    """
+    from datetime import datetime, timedelta
+
+    from app.models.anomalies import (
+        AnomalyDimension, AnomalyEpisode, AnomalyStatus, AnomalyType, AnomalyWindow,
+        Direction, Severity,
+    )
+    from app.services.anomaly_aggregation import compute_window_stats
+
+    data_end = datetime(2026, 5, 18, 19, 0)
+    episodes = [
+        AnomalyEpisode(
+            id=f"EP-{i:04d}", equipment="SALLE_SWITCH", type=AnomalyType.collective,
+            severity=Severity.alert, direction=Direction.high,
+            start=data_end - timedelta(hours=h), duration_min=30.0, peak_value=27.5,
+            status=AnomalyStatus.open, dimension=AnomalyDimension.environment,
+        )
+        for i, h in enumerate([2, 10, 100], start=1)  # 2 dans les 24 h, 1 hors
+    ]
+
+    anchored = compute_window_stats(episodes, AnomalyWindow.h24, data_end)
+    assert anchored.total == 2
+    assert anchored.reference_at == data_end
+    assert anchored.top_family is not None
+
+    # La même fenêtre calée deux mois plus tard ne verrait plus rien.
+    on_the_clock = compute_window_stats(episodes, AnomalyWindow.h24, data_end + timedelta(days=60))
+    assert on_the_clock.total == 0

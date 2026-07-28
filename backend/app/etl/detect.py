@@ -17,7 +17,9 @@ par l'état HMM — à confirmer) :
     de seuil réel » (réduit ~1383 runs bruts à ~388 épisodes de vraie excursion).
   - **type** = `collective` (le HMM détecte des anomalies contextuelles multivariées).
   - **equipment** = `SALLE_SWITCH` (granularité salle).
-  - **status** par ancienneté (`resolved` >72 h, `acknowledged` >24 h, sinon `open`).
+  - **status** par ancienneté (`resolved` >72 h, `acknowledged` >24 h, sinon `open`),
+    mesurée contre la **fin de la période observée** — pas contre l'horloge, qui
+    marquerait tout un export historique comme « résolu ».
   - **id** = `EP-{n:04d}` par ordre chronologique (stable sur données figées).
   - **dimension** = `environment` (seul le pipeline HMM est branché ; `scada`
     viendra avec l'ingestion des CSV SCADA, cf. `models/anomalies.AnomalyDimension`).
@@ -51,6 +53,12 @@ ROOM = "SALLE_SWITCH"
 
 
 def _status_for(start: datetime, now: datetime) -> AnomalyStatus:
+    """Statut par ancienneté, mesurée contre la **fin de la période observée**.
+
+    Mesurée contre l'horloge, tout épisode d'un export historique figé serait
+    « résolu » d'office — l'ancienneté refléterait l'âge du fichier, pas celle de
+    l'événement.
+    """
     age_h = (now - start).total_seconds() / 3600.0
     if age_h > 72:
         return AnomalyStatus.resolved
@@ -118,7 +126,10 @@ def run_hmm_episodes(silver: pd.DataFrame) -> list[AnomalyEpisode]:
     brk = (s["is_anom"] != s["is_anom"].shift()) | (s["segment_id"] != s["segment_id"].shift())
     s["run"] = brk.cumsum()
 
-    now = datetime.now()
+    # Fin de la période observée — même repère que les fenêtres servies à l'API
+    # (cf. `ml/anomalies.reference_now`), pour que « ouverte / acquittée / résolue »
+    # se lise par rapport aux données et non par rapport à l'âge de l'export.
+    now = df.index.max().to_pydatetime()
     cands = [_characterize(r, temp_thr) for _, r in s[s["is_anom"]].groupby("run")]
     cands = sorted((c for c in cands if c is not None), key=lambda c: c["start"])
     return [

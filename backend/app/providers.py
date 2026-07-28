@@ -10,7 +10,7 @@ La production des épisodes / overview / forecast est spécifique à la source ;
 la surcharge de statut, le filtrage et les agrégations sont partagés
 (`services/anomaly_aggregation.py`).
 """
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.config import settings
 from app.ml import anomalies as ml_anomalies
@@ -97,4 +97,7 @@ def anomaly_histogram(bucket: HistogramBucket) -> AnomalyHistogram:
 
 
 def anomaly_window_stats(window: AnomalyWindow) -> WindowStats:
-    return agg.compute_window_stats(_anomaly_source().raw_episodes(), window, datetime.now(timezone.utc))
+    # Borne haute = fin de la période observée (donnée par la source), pas l'heure
+    # de la requête : cf. `ml/anomalies.reference_now`.
+    src = _anomaly_source()
+    return agg.compute_window_stats(src.raw_episodes(), window, src.reference_now())

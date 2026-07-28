@@ -4,6 +4,60 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 10 — 2026-07-28 (suite) — Phase 8 F+I : scoring santé réel + prévision (notebook `health_scores.ipynb`)
+
+**Demande** : extraire du notebook `health_scores.ipynb` (dossier `datapulse`, hors dépôt) tout ce qu'il faut pour rendre le score de santé et sa prévision opérationnels dans l'application, et faire descendre les CSV utilisés par le notebook dans les couches bronze / silver / gold.
+
+### Le parcours des CSV du notebook
+Les deux fichiers que lit le notebook existaient déjà comme **références de fidélité**, mais rien ne les faisait descendre jusqu'au gold. C'est fait :
+
+| Fichier notebook | Bronze | Silver | Gold |
+|---|---|---|---|
+| `temp_humid_last.csv` | `raw_temp_humidity` (137 970) | `th_clean` (107 047) | `health_score_hourly` |
+| `msc10_combined_ups.csv` | `raw_scada_log` (3 274) | **`scada_clean`** (2 569, nouveau) | `health_score_hourly` |
+| `site_health_scores.csv` (sortie) | — | — | `health_score_hourly` (2 137 h), `health_score`, `forecast_point` |
+
+`scada_clean` est produit par LEUR `clean_and_dedupe` : il reproduit `msc10_combined_ups.csv` **à la ligne près** (2 569 = 2 569, déjà couvert par le golden test d'ingestion).
+
+### Réalisations
+- **`ml/health_score/`** (maths pures, aucune I/O) : `config.py` (poids v1.0, mots-clés, dates de PM, seuils), `features.py` (helpers + features horaires env/énergie/batterie), `scoring.py` (risques de base → calibration énergie → score global, driver, statut, priorité, action conseillée), `forecasting.py` (features de prévision, entraînement, déroulé récursif).
+- **Stockage** : `silver.scada_clean` et `gold.health_score_hourly` (+ repositories) ; `gold_repo` sait désormais écrire/lire l'instantané `health_score` et les `forecast_point`.
+- **ETL** : `transform.transform_scada`, `etl/score.py`, `etl/forecast.py`, `etl/run.py` (orchestration bronze → silver → gold, idempotente).
+- **Source live** : `ml/health.py` implémenté — les 5 routes santé lisent le gold, plus aucun `NotImplementedError` (501 uniquement si le gold est vide, avec la marche à suivre).
+- **Correctif** `config.py` : `.env` était cherché en chemin relatif alors qu'`uvicorn --app-dir backend` démarre à la racine — `DATA_SOURCE` dans `backend/.env` n'était jamais lu.
+
+### Décisions
+- **Fidélité prouvée, pas supposée** : `test_scoring_reproduces_notebook_output` compare le portage à `site_health_scores_v1_0.csv` sur les entrées livrées → **égalité exacte** (< 1e-6) sur les 4 scores. Le fichier de sortie du notebook a été déposé en référence (`app/ml/data/raw/reference/`, gitignoré).
+- **Lectures capteur invraisemblables = données manquantes** : l'export brut encode le repli capteur par une humidité à 0-11 % (le fichier livré, lui, porte NaN). Comptées comme mesures, elles faisaient exploser l'écart-type horaire et, via l'échelle p95, déréglaient le terme de variabilité sur toute la série. Bornes de plausibilité posées dans `config` (humidité ≥ 15 %, température ≥ 5 °C ; le fichier livré descend à 23,5 % et 17,9 °C). Écart résiduel sur le score global : **0,45 point en moyenne**, dû au millésime de l'export — énergie et batterie sont bit-exactes.
+- **Le modèle de prévision est choisi par les données** : persistance / linéaire / gradient boosting sont entraînés, le meilleur sur la **validation** est retenu. Sur ces données c'est la **persistance** (MAE val. 6,44 vs 6,61 linéaire vs 11,03 GB) — conforme au notebook, où aucun modèle ne bat la persistance (test : 6,00 vs 6,18 / 10,55 / 16,14). Servir un modèle moins bon que « le score reste où il est » aurait été une régression déguisée en modèle.
+- **Au-delà de +6 h** (pas validé du modèle), la trajectoire vient d'un **déroulé récursif à conditions inchangées** ; seuls le calendrier et le risque de PM évoluent, et la bande s'élargit en √pas à partir de l'écart-type des résidus de test.
+- **Franchissement de seuil** = passage sous un seuil **non encore franchi** (borne basse de la bande). Un seuil déjà franchi est l'état courant, pas une prévision : le signaler à chaque point noyait le signal (24 « franchissements » sur 24 points).
+- **Domaine → `family`** : `environmental→stulz`, `energy→socomec`, `battery→yanan`, l'ordre attendu par le frontend, qui libelle ces cartes **par domaine** (`FAMILY_DOMAIN_LABEL_KEY`). `family` n'est qu'une clé technique — aucun frontend touché, libellés corrects à l'écran.
+- **Prévision par sous-score** : projection à niveau constant avec bande élargie, faute de modèle validé par domaine. Une bande large qui dit « on ne sait pas » vaut mieux qu'une courbe inventée.
+
+### Validation
+- `pytest` : **78/78 verts** (65 + 13 nouveaux), dont le golden de fidélité au notebook.
+- Pipeline complet réel (`python -m app.etl.run --train`) : bronze 137 970 + 3 274 → silver 107 047 + 2 569 → gold 388 épisodes, 2 137 heures scorées, 4 lignes d'instantané, 164 points de prévision.
+- Navigateur en `DATA_SOURCE=live` : **Aperçu** (global 69,9 · Env 90,0 · Énergie 68,4 · Batterie 54,2 · prochaine panne = Batterie · anomalies `SALLE_SWITCH`), **Santé du site** (score, 3 domaines, courbes 7/30/90 j), **Prévision** (pannes par domaine, courbe globale historique+prévision continue, 1 franchissement, 3 sous-scores). Aucune erreur console.
+
+### Correctif de suivi — fenêtre Anomalies vide
+
+**Constat** : les KPI « 24 h / 7 j » de la page Anomalies affichaient 0 et le donut « Répartition par modèle » était vide, alors que le gold contient bien **388 épisodes** (`/api/anomalies/stats` et l'histogramme, non fenêtrés, les affichent).
+
+**Cause** : `compute_window_stats` bornait la fenêtre à `datetime.now()`. L'export est figé — dernière lecture capteur le **18/05/2026**, dernier épisode le **09/05/2026** — soit ~72 jours avant la date du jour : la fenêtre tombait entièrement après la fin des données. Même mécanisme dans `etl/detect._status_for`, qui vieillissait les statuts contre l'horloge (388/388 « résolues » par construction).
+
+**Correctif** : nouveau contrat `reference_now()` sur les deux sources d'anomalies (mock = `now`, live = **fin de la couverture silver**) ; `WindowStats` porte désormais `reference_at`, affiché dans le sous-titre du panneau (« 24 h — jusqu'au 18/05/2026 19:19 (fin des données observées) »), et le donut affiche un état vide explicite au lieu d'une légende orpheline.
+
+Ancrage volontairement sur la **fin de la couverture capteur**, pas sur le dernier épisode : une fenêtre calée sur le dernier épisode contiendrait toujours au moins une anomalie par construction et ne mesurerait plus rien. Conséquence assumée : 24 h et 7 j restent à **0** — les 9 derniers jours d'observation sont réellement sans anomalie — mais le panneau dit maintenant « rien à signaler sur la période » au lieu de paraître cassé.
+
+### En suspens
+- Prévision **plate** tant que la persistance gagne : c'est le résultat honnête, mais le modèle linéaire est à 0,17 MAE près et donnerait une courbe qui bouge — arbitrage produit à trancher.
+- `weight_version` v1.0 figée : le notebook a des curseurs de poids (ipywidgets) non exposés dans l'application ; `recalculate_health_scores` n'a pas été porté (pas de surface UI pour le piloter).
+- Dates de PM en dur (`ENV_LAST_PM_DATE`, `ENERGY_LAST_PM_DATE`) — à brancher sur les plannings réels de `pm_schedules` (état applicatif) pour que le risque de PM suive les interventions saisies.
+- Phase 8 H (temps réel/incrémental) toujours bloquée : pas de flux source.
+
+---
+
 ## Session 9 — 2026-07-28 (suite) — Page Aperçu (dashboard site) + rappels en notifications
 
 **Demande** : nouvel onglet « Aperçu » par site — score global + sous-scores (24h), prochaine panne prédite avec détails, aperçu des 5 dernières anomalies, prochaine maintenance + nombre cette semaine. Et changer la logique des rappels pour qu'ils apparaissent comme des notifications (cloche en haut à droite, popover) plutôt qu'une page dédiée.
