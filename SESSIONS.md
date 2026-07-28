@@ -4,6 +4,120 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 4 — 2026-07-27 — Architecture des données + pipeline livré + socle `storage/`
+
+**Demande** : penser l'intégration des données (historique + temps réel) avant de
+rebrancher Santé du site ; ne pas mélanger la donnée avec l'ETL. Puis analyse du
+package `mlops-api` (modèles/train/preprocessing livrés) et démarrage.
+
+### Réalisations
+- **`docs/data-architecture.md`** : plan complet. Séparation à 3 axes **storage /
+  etl / ml** ; couches **medallion bronze/silver/gold** (gold = miroir des modèles
+  Pydantic) ; **3 fichiers SQLite** à écrivain unique (source CSV → `datapulse_analytics.db`
+  écrit par l'ETL → `datapulse.db` écrit par l'API) ; batch + temps réel = un seul
+  transform, deux déclencheurs (backfill / incrémental + watermark) ; API qui **lit
+  le gold précalculé**. Décisions actées via questions : SQLite partout, serving gold.
+- **Analyse `mlops-api`** (pipeline validé livré, hors notebook) : 2 modèles entraînés
+  — `environmental` (HMM temp/hum, F1=0.83) et `alarm_anomaly` (IsolationForest SCADA,
+  catégories UPS/CLIM/ENERGY) — + preprocessing pur, artefacts `.joblib`, sa propre API
+  (non réutilisée), Docker, et `datapulse.db` (107 060 lignes temp/hum). **Décision :
+  intégration en librairie** (leur `src/` → notre `ml/`).
+- **Décisions produit appliquées** : granularité **par salle** (SALLE_SWITCH, pas par
+  STULZ) ; **seuils livrés 26.75 / 28.65** (thresholds.json, split train) propagés
+  partout (mocks/equipment.py, CLAUDE, README, i18n, docs) ; source = **exports CSV**
+  (PostgreSQL non joignable — plateforme isolée) ; **Scenario 6 supprimé de toute la
+  mémoire projet** (CLAUDE, ROADMAP, SESSIONS, docs, `db/queries.py`).
+- **Étape A — socle `storage/`** (non-cassant, mock reste défaut) : `storage/analytics_db.py`
+  (SQLite dédié, WAL, `URL.create()`, `init_analytics_db`), `storage/schema/` avec `Base`
+  propre + **bronze** (`raw_temp_humidity`, `raw_scada_log`, `ingest_watermark`), **silver**
+  (`th_clean`), **gold** (`anomaly_episode`, `health_score`, `forecast_point` — miroirs
+  Pydantic). Câblé au lifespan FastAPI. `config.py` : `analytics_db_path`.
+
+### Validation
+- `pytest tests/` : **33/33 verts** (4 nouveaux `test_storage` : création des 7 tables
+  des 3 couches, aller-retour bronze, reconstruction `AnomalyEpisode` depuis gold,
+  silver + watermark). Seuils changés sans régression (constantes importées symboliquement).
+
+### Étape B — faite (même session)
+- `mlops-api` **vendorisé** dans `app/ml/` (`environmental`, `alarm_anomaly`, `models/`) :
+  imports réécrits en `app.ml.*`, `MODELS_DIR` corrigé (`app/ml/models`), deps ajoutées
+  (`hmmlearn`, `scikit-learn==1.9.0`, `openpyxl`). **Vérifié** : les 2 modèles chargent et
+  prédisent (env : is_anomaly sur 100 lectures du CSV ; alarm : sur features d'exemple).
+  `model_registry.py` copié mais non utilisé (glue de leur API ; import obsolète).
+
+### Données brutes reçues + documentation (même session)
+- **4 fichiers bruts fournis** et copiés dans `backend/app/ml/data/raw/` (gitignoré) :
+  `temp_humid_msc10.csv` (140 077 lignes, latin-1, sans `ts`), `logs_msc10.xlsx`
+  (2 250, en-tête ligne 1, SCADA 2026), `ups_socomec1_msc10_events.csv` (1 024, 1re
+  ligne parasite), `alarmes_scada_2022.xlsx` (35 408 multi-sites → **2 664 MSC 10**).
+  Inspectés (colonnes/volumes/pièges).
+- **`docs/ml-data-integration.md`** créé : état réalisé (A+B) + inventaire des données
+  + écarts brut↔entraînement à gérer en C/D (encodage latin-1, `ts` à reconstruire,
+  en-têtes décalés, filtrage MSC 10, états A/D/Q/Acquittement, formats de date).
+
+### Étape C — lecteurs bruts + fidélité (faits ; écriture bronze à venir)
+- `app/etl/ingest/sources.py` : lecteurs normalisant les fichiers bruts (encodage
+  latin-1, `ts` reconstruit, en-têtes décalés, filtrage MSC 10, mapping UPS miroir
+  de `merge_ups_source`), réutilisant `clean_and_dedupe`/`dedupe_and_index` (jamais
+  réimplémentés).
+- **Golden tests** (`tests/test_ingestion_fidelity.py`, skippés si données absentes) :
+  environnemental **99.95 % / 99.76 %** vs `temp_humid_last.csv` ; SCADA **100 % exact**
+  vs `msc10_combined_ups.csv` (2569/2569, catégories 100 %). **35 tests verts.**
+- **Découverte** (notebook fourni) : les **alarmes 2022 n'ont jamais servi au modèle**
+  (format de date `M/J/AAAA h:mm AM/PM` → NaT → `dropna`). Combiné = 2026 (logs+UPS)
+  uniquement ; notre ingestion l'exclut explicitement → même résultat. Documenté.
+- Références copiées dans `app/ml/data/raw/reference/` (gitignoré) pour les tests.
+
+### Étapes C (fin) & D — faites
+- **C — écriture bronze** : `storage/repositories/{bronze_repo,silver_repo}` (contrat
+  lecture/écriture, insertion en masse via `to_sql`, remplacement idempotent),
+  `etl/ingest/backfill.py` (watermark). Backfill réel : `raw_temp_humidity`=**137 970**,
+  `raw_scada_log`=**3 274**.
+- **D — transform bronze→silver** : `etl/transform.py` réutilise `dedupe_and_index` +
+  `add_segments` (package validé). Réel : `th_clean`=**107 047** lignes, **1 905 segments**
+  (≈ 1904 validés dans CLAUDE.md) — forte confirmation de la fidélité de segmentation.
+- Tests : `tests/test_etl.py` (backfill idempotent + watermark ; transform → segments).
+  **37 tests verts.**
+
+### Étape E — détection → épisodes → gold (faite)
+- **Décision (via question)** : gold = **runs d'anomalie du HMM**, pas les épisodes
+  hystérésis. Le run brut a montré **1383 épisodes dont 72 % en température normale**
+  (HMM multivarié : anomalies humidité/contextuelles étiquetées de force en °C).
+  → 2e décision : **filtrer sur franchissement réel de seuil température**.
+- `etl/detect.py` : déroule le HMM (réutilise `compute_rolling_features` +
+  `prepare_hmm_sequences` + scaler/hmm/anomalous_states) sur le silver, groupe les
+  runs anormaux, ne garde que ceux franchissant un seuil Tukey livré, mappe →
+  `AnomalyEpisode` (equipment=`SALLE_SWITCH`, direction/pic/sévérité dérivés de la
+  température, type=`collective`, status par ancienneté). `gold_repo` (replace/read).
+- Réel : **388 épisodes** (228 high / 160 low, 14 critical, pics 17.9–30.7 °C), **0**
+  en température normale. Tests `test_detect.py` (filtre + gold round-trip). **41 verts.**
+- ⚠️ Gold peuplé mais `DATA_SOURCE=mock` par défaut → l'API sert toujours les mocks
+  tant que G n'a pas basculé `providers` en lecture gold.
+
+### Étape G — anomalies en live (faite)
+- `ml/anomalies.py` (source live) implémenté : **lit le gold** (`gold_repo.read_episodes`) ;
+  `window_days` = étendue du silver (`silver_repo.span_days`). `providers` inchangé
+  (le seam route déjà mock↔live). Aucun calcul sur le chemin de requête.
+- Vérifié **en live** (`DATA_SOURCE=live`, vraie base) : `GET /api/anomalies`=200 avec
+  **388 épisodes** ; stats total=388, taux 4,2 %, MTBA 11,1 h, alert 374/critical 14,
+  high 228/low 160 ; histogramme 7 mois ; rappels dérivés OK. `health/overview` &
+  `forecast` restent **501** (étape F). Surcharge de statut/actions utilisateur intacte.
+- Tests hermétiques : `conftest` pose `ANALYTICS_DB_PATH` jetable (gold vide en test →
+  réponses vides mais 200). `test_ml_seam` scindé (health 501 / anomalies 200). **42 verts.**
+
+### Prochaines étapes (cf. ROADMAP Phase 8)
+- **F** — health scores + forecast → gold (scoring composite à définir) puis source
+  live health → retrait des 2 derniers 501. **I** — rebrancher Santé du site sur l'API.
+- Anomalies **SCADA** (alarm_anomaly, forme ≠ AnomalyEpisode) + silver SCADA :
+  capacité nouvelle à concevoir séparément. Anomalies **humidité** du HMM : flux à part éventuel.
+- **À fournir par l'utilisateur** : les CSV bruts d'entraînement du modèle SCADA
+  (`logs_msc10.csv`, `ALARMES SCADA 2022.xlsx`, `ups_clean.csv`).
+- Repositories `storage/repositories/` (contrat lecture/écriture) : à écrire juste avant D/E.
+- Table gold des anomalies d'alarmes SCADA (forme différente d'`AnomalyEpisode`) : à ajouter
+  avec les CSV SCADA. Temps réel (H) différé (pas de flux live).
+
+---
+
 ## Session 3 — 2026-07-26 (suite) — Refonte UI (Recharts / Lucide / Framer Motion)
 
 **Demande** : rapprocher le dashboard du design de référence (captures + `DataPulse - Identity v2 (standalone).html`) : sidebar persistante slate foncé, canvas clair, cartes blanches surélevées, charts Recharts, icônes Lucide, animations Framer Motion.
@@ -79,7 +193,7 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ## Session 3 — 2026-07-26 (suite) — Phase 10 (polish)
 
-**Phases couvertes** : Phase 10 — parcours de test, responsive mobile, accessibilité. Livrable DSIP4 laissé de côté (bloqué par la validation Scenario 6, Phase 8).
+**Phases couvertes** : Phase 10 — parcours de test, responsive mobile, accessibilité. Livrable DSIP4 laissé de côté (bloqué par la Phase 8).
 
 ### Réalisations
 - **Responsive** : sidebar convertie en **tiroir mobile** sous 768px (`AppLayout` : hamburger avec `aria-expanded`, backdrop cliquable, fermeture au clic sur un lien et via Échap). Positionnement fixe piloté par CSS (`index.css`), translation d'ouverture pilotée en **inline depuis React** via un état `isMobile` (`matchMedia`) — choix délibéré après un long faux-bug (voir ci-dessous). `main` en padding responsive (`.app-main`). Vérifié : **0 débordement horizontal** sur les 5 pages à 375px, `main` pleine largeur.
@@ -95,7 +209,7 @@ Le tiroir semblait cassé (transform figé à `translateX(-100%)` même ouvert, 
 - ⚠️ Node absent du PATH shell mais présent (`C:\Program Files\nodejs`) ; `.claude/launch.json` (gitignoré) pointe le chemin complet de node pour lancer Vite via le Browser pane.
 
 ### En suspens
-- Livrable DSIP4 + Phases 8 (branchement pipeline réel, validation Scenario 6) et 9 (UPS/generators) — toujours bloquées par le code pipeline + accès DB.
+- Livrable DSIP4 + Phases 8 (branchement pipeline réel) et 9 (UPS/generators) — toujours bloquées par le code pipeline + accès données.
 - Option : e2e navigateur complet (Playwright) au-delà des tests d'intégration actuels.
 - Toggle thème clair (tokens prêts, pas de bouton) — a11y contrastes du thème clair non audités (non atteignable dans l'UI).
 
@@ -106,13 +220,13 @@ Le tiroir semblait cassé (transform figé à `translateX(-100%)` même ouvert, 
 **Phases couvertes** : Phase 8, premier pas — le *seam* d'intégration mock ↔ live. Le branchement du vrai pipeline reste **bloqué** (voir En suspens).
 
 ### Constat de blocage
-Revue complète du repo : **aucun code ML, notebook, artefact de modèle ni donnée** présent (seul `app/ml/README.md` en placeholder ; `.env` vide ; pas de `docs/`). Le pipeline validé vit dans le notebook Databricks, hors repo, et l'accès à PostgreSQL `datacenter_ops` n'est pas configuré. Impossible de brancher le pipeline réel ou de lancer la validation Scenario 6 sans ces éléments — et hors de question de fabriquer un faux pipeline « validé » (règle projet + honnêteté sur les perfs). Question posée à l'utilisateur (non répondue) ; défaut retenu : construire le seam, qui ne dépend d'aucun input externe.
+Revue complète du repo : **aucun code ML, notebook, artefact de modèle ni donnée** présent (seul `app/ml/README.md` en placeholder ; `.env` vide ; pas de `docs/`). Le pipeline validé vit dans le notebook Databricks, hors repo, et l'accès à PostgreSQL `datacenter_ops` n'est pas configuré. Impossible de brancher le pipeline réel sans ces éléments — et hors de question de fabriquer un faux pipeline « validé » (règle projet + honnêteté sur les perfs). Question posée à l'utilisateur (non répondue) ; défaut retenu : construire le seam, qui ne dépend d'aucun input externe.
 
 ### Réalisations (comportement inchangé, mock par défaut)
 - **Aiguillage `DATA_SOURCE` (mock|live)** dans `config.py` ; `app/providers.py` = point unique de choix de source, lu à chaud. Les routes (`health`, `anomalies`, `reminders`) appellent désormais `providers.*`, plus jamais `mocks/` ni `ml/` directement.
 - **Contrat `ml/`** : `ml/anomalies.py` (`raw_episodes`, `window_days`) et `ml/health.py` (`get_overview`, `get_forecast`) — stubs levant `NotImplementedError`, docstrings mappées aux étapes validées (préprocessing/segmentation/hystérésis/seuils Tukey). `ml/README.md` = guide d'intégration.
 - **Agrégations partagées** (`services/anomaly_aggregation.py`) sorties de `mocks/anomalies.py` : surcharge de statut, filtrage, `compute_stats`, `compute_histogram` — identiques quelle que soit la source. `mocks/anomalies.py` réduit à la production d'épisodes bruts (`raw_episodes`, `window_days`).
-- **Lecture DB documentée** (`db/queries.py`) : `read_temp_humidity` / `read_scada_logs` / `read_ups_events` / `read_scenario_6_labels` (pandas via `engine.py`). ⚠️ NON TESTÉ, noms de colonnes à confirmer (pas d'accès DB).
+- **Lecture DB documentée** (`db/queries.py`) : `read_temp_humidity` / `read_scada_logs` / `read_ups_events` (pandas via `engine.py`). ⚠️ NON TESTÉ, noms de colonnes à confirmer (pas d'accès DB).
 - **501 explicite** : handler `NotImplementedError → 501` dans `main.py` — `DATA_SOURCE=live` avant branchement renvoie un message clair, pas un 500 opaque. `.env.example` documente `DATA_SOURCE`.
 
 ### Validation
@@ -122,7 +236,7 @@ Revue complète du repo : **aucun code ML, notebook, artefact de modèle ni donn
 ### En suspens (bloquant pour la suite de Phase 8)
 - **Fournir le code du pipeline validé** (notebook/.py) → à adapter dans `ml/` (ne pas réécrire).
 - **Accès DB** `datacenter_ops` (credentials dans `.env`, base joignable depuis la machine) → tester `db/queries.py`, confirmer les schémas.
-- `scenario_6_label` + validation finale ; scoring composite santé ; sémantique forecast °C↔score (à trancher au branchement, cf. note session Phase 5).
+- Scoring composite santé ; sémantique forecast °C↔score (à trancher au branchement, cf. note session Phase 5).
 
 ---
 
@@ -143,7 +257,7 @@ Revue complète du repo : **aucun code ML, notebook, artefact de modèle ni donn
 
 ### En suspens
 - Badge nav rechargé au changement de page seulement : après un acquittement *sur* la page Reminders, le badge reste à jour dès la navigation suivante (pas de rafraîchissement live intra-page — acceptable, amélioration possible via contexte partagé ou polling).
-- Reste : Phase 8 (intégration pipeline ML réel + validation Scenario 6), Phase 9 (UPS/generators), Phase 10 (e2e, responsive, a11y, livrable). Le pattern « action utilisateur persistée surchargeant/filtrant une donnée dérivée » est désormais établi sur maintenance, anomalies et reminders.
+- Reste : Phase 8 (intégration pipeline ML réel), Phase 9 (UPS/generators), Phase 10 (e2e, responsive, a11y, livrable). Le pattern « action utilisateur persistée surchargeant/filtrant une donnée dérivée » est désormais établi sur maintenance, anomalies et reminders.
 
 ---
 

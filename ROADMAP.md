@@ -13,7 +13,7 @@ Ordre de développement recommandé, du scaffold initial jusqu'au livrable DSIP4
 - [ ] Mettre en place un `requirements.txt` et un `package.json` propres
 
 ## Phase 1 — Backend : squelette API avec données mockées
-Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la validation Scenario 6.
+Objectif : débloquer le frontend sans dépendre du pipeline ML réel.
 - [ ] Définir les schémas Pydantic pour : health score (global + sub-scores), anomalie, épisode de maintenance, reminder
 - [ ] Endpoint `GET /api/health/overview` — health score global + par équipement (données mockées cohérentes avec les seuils Tukey réels)
 - [ ] Endpoint `GET /api/health/forecast?horizon=24h|7d|30d` — courbe historique + prévision + bande de confiance (mock)
@@ -58,13 +58,20 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [x] Badge de compteur dans la nav
 - [x] Backend : `POST /api/reminders/{id}/snooze` + `/acknowledge`, `GET /api/reminders/count` (actions persistées, filtrent la liste dérivée)
 
-## Phase 8 — Intégration du vrai pipeline ML (remplacement progressif des mocks)
-- [x] **Seam mock ↔ live** : aiguillage par `DATA_SOURCE`, `app/providers.py` (routes découplées de la source), contrat `ml/` (stubs + README), agrégations partagées (`services/anomaly_aggregation.py`), lecture DB documentée (`db/queries.py`), 501 explicite tant que non branché
-- [ ] Brancher `GET /api/anomalies` sur le pipeline PELT réel (preprocessing → segmentation → détection) — **bloqué : code pipeline validé (notebook) + accès DB requis**
-- [ ] Tester `MIN_DURATION_FOR_JUMP=60` min sur l'approche PELT combinée (point ouvert du pipeline)
-- [ ] Charger `scenario_6_label` depuis SCADA
-- [ ] Lancer la validation finale contre le ground-truth Scenario 6
-- [ ] Mettre à jour les endpoints de health score avec les vrais calculs (une fois la logique de scoring composite définie)
+## Phase 8 — Intégration du vrai pipeline ML (package `mlops-api` livré)
+Architecture détaillée : **`docs/data-architecture.md`** (couches bronze/silver/gold,
+séparation storage/etl/ml, intégration en librairie). Source de données = **exports
+CSV** (PostgreSQL non joignable). Pipeline livré = package `mlops-api` (2 modèles :
+`environmental` HMM temp/humidité, `alarm_anomaly` IsolationForest SCADA).
+- [x] **Seam mock ↔ live** : aiguillage par `DATA_SOURCE`, `app/providers.py` (routes découplées de la source), contrat `ml/` (stubs + README), agrégations partagées (`services/anomaly_aggregation.py`), 501 explicite tant que non branché
+- [ ] **A** — `storage/` : base analytique SQLite + schémas bronze/silver/gold + repositories (testable à vide)
+- [x] **B** — `mlops-api` vendorisé dans `app/ml/` (`environmental`, `alarm_anomaly`, `models/`) ; imports réécrits en `app.ml.*`, chemins modèles corrigés ; les 2 modèles chargent et prédisent (vérifié). Deps : `hmmlearn`, `scikit-learn==1.9.0`, `openpyxl`.
+- [x] **C** — `etl/ingest` : lecteurs bruts (`sources.py`) + **golden tests de fidélité** (env 99.95 %, SCADA 100 % exact) ; **écriture bronze** (`storage/repositories/bronze_repo`, `etl/ingest/backfill`, watermark + idempotence). Backfill réel : `raw_temp_humidity`=137 970, `raw_scada_log`=3 274. NB : alarmes 2022 hors combiné modèle (perdues par parsing dans le notebook d'origine).
+- [x] **D** — `etl/transform` : bronze → silver (`th_clean`) via `dedupe_and_index`+`add_segments` du package. Réel : 107 047 lignes, **1 905 segments** (≈ 1904 validés).
+- [x] **E** — `etl/detect` : HMM environnemental déroulé sur le silver → runs d'état anormal **filtrés sur franchissement réel de seuil température** (décision produit) → gold `anomaly_episode` **par salle** (`SALLE_SWITCH`). Réel : **388 épisodes** (228 high / 160 low, 14 critical), 0 en température normale. `gold_repo` écrit. NB : anomalies humidité/contextuelles du HMM écartées (≈1383 runs bruts → 388).
+- [ ] **F** — `etl/score,forecast` : health scores + forecast → gold
+- [~] **G** — source live → lecture `gold_repo` : **anomalies + rappels servis en live** (`ml/anomalies` lit le gold, `providers` inchangé). Vérifié : `GET /api/anomalies`=200 (388 épisodes), stats/histogramme/rappels OK, plus de 501. Reste : health/forecast (dépend de F).
+- [ ] **H** — `etl/incremental` + temps réel (watermark) — quand un flux sera disponible
 
 ## Phase 9 — Extension de la couverture
 - [ ] Étendre la détection d'anomalies aux UPS (SOCOMEC) et generators (YANAN)
@@ -74,7 +81,7 @@ Objectif : débloquer le frontend sans dépendre du pipeline ML réel ni de la v
 - [x] Tests des parcours critiques (planifier une PM, consulter/acquitter une anomalie, lire le forecast) — Vitest + Testing Library (6 tests, API mockée). NB : niveau intégration ; e2e navigateur complet (Playwright) laissé en option.
 - [x] Responsive mobile sur les 5 pages — sidebar en tiroir sous 768px (hamburger + backdrop + Échap), 0 débordement horizontal vérifié à 375px
 - [x] Vérification accessibilité — structure de titres (h1→h2), `:focus-visible`, noms accessibles sur tous les interactifs, aria sur tiroir/badge, contrastes AA (texte 18:1, muted ~7:1, statuts ≥4.7:1)
-- [ ] Rédaction du livrable DSIP4 — **en attente de la validation Scenario 6** (pas d'affirmation quantitative de performance avant ; cf. Phase 8 bloquée)
+- [ ] Rédaction du livrable DSIP4 — s'appuyer sur les métriques livrées avec les modèles (`metadata.json`) ; pas d'affirmation de performance non sourcée.
 
 ---
 

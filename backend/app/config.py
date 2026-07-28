@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # écrit dans la base du data center.
     app_db_path: Path = BACKEND_ROOT / "data" / "datapulse.db"
 
+    # Stockage analytique (écriture par l'ETL uniquement) — SQLite local, distinct
+    # de l'état applicatif : couches bronze/silver/gold du pipeline de données.
+    # Voir docs/data-architecture.md. Un seul écrivain (ETL) par fichier.
+    analytics_db_path: Path = BACKEND_ROOT / "data" / "datapulse_analytics.db"
+
     cors_origins: list[str] = ["http://localhost:5173"]
 
 

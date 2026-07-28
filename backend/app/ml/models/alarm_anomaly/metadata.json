@@ -1,0 +1,23 @@
+{
+  "model_name": "alarm_anomaly",
+  "trained_at": "2026-07-26T14:20:54.036901+00:00",
+  "n_events_trained_on": 720,
+  "features": [
+    "duration_sec",
+    "total_alarms",
+    "unique_alarm_types",
+    "active_alarms",
+    "cleared_alarms",
+    "alarm_rate",
+    "alarm_diversity",
+    "repetition_factor",
+    "active_ratio",
+    "hour"
+  ],
+  "model_type": "IsolationForest",
+  "model_params": {
+    "n_estimators": 300,
+    "contamination": 0.03,
+    "random_state": 42
+  }
+}

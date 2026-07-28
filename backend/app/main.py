@@ -9,11 +9,15 @@ from app.api import anomalies, health, maintenance, reminders
 from app.config import settings
 from app.db.app_db import get_sessionmaker, init_db
 from app.mocks.maintenance import seed_demo_calendar
+from app.storage.analytics_db import init_analytics_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db()
+    # Crée les tables de la base analytique (bronze/silver/gold) si absentes.
+    # Non-cassant : la base reste vide tant que l'ETL ne l'alimente pas.
+    init_analytics_db()
     with get_sessionmaker()() as session:
         seed_demo_calendar(session)
     yield

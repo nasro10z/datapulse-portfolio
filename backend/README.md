@@ -1,7 +1,7 @@
 # DataPulse — Backend (FastAPI)
 
 API mockée (Phase 1) : les endpoints de lecture servent des données générées avec
-seed fixe, cohérentes avec le pipeline ML validé (seuils Tukey 27.85/30.40°C, parc
+seed fixe, cohérentes avec le pipeline ML validé (seuils Tukey 26.75/28.65°C, parc
 MSC-10). Le vrai pipeline sera branché en Phase 8 sans changer les contrats.
 
 ## Deux bases, deux rôles

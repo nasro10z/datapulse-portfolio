@@ -1,0 +1,28 @@
+{
+  "model_name": "environmental",
+  "trained_at": "2026-07-26T22:10:43.365220+00:00",
+  "n_states": 6,
+  "prop_cutoff": 0.05,
+  "test_f1_anomaly": 0.8328168324906214,
+  "features": [
+    "temperature",
+    "humidity",
+    "temperature_mean_court",
+    "temperature_mean_moyen",
+    "temperature_mean_long",
+    "humidity_mean_court",
+    "humidity_mean_moyen",
+    "humidity_mean_long",
+    "temperature_std_court",
+    "humidity_std_court",
+    "temp_short_long_delta",
+    "humidity_short_long_delta",
+    "temp_change",
+    "humidity_change",
+    "temp_change_10min",
+    "humidity_change_10min",
+    "segment_freshness_court",
+    "segment_freshness_moyen",
+    "segment_freshness_long"
+  ]
+}

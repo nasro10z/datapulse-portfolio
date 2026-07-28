@@ -1,0 +1,24 @@
+{
+  "temperature": {
+    "q1": 23.9,
+    "q3": 25.8,
+    "iqr": 1.9000000000000021,
+    "mild_lower": 22.949999999999996,
+    "mild_upper": 26.75,
+    "strong_lower": 21.999999999999996,
+    "strong_upper": 27.700000000000003,
+    "extreme_lower": 21.049999999999997,
+    "extreme_upper": 28.650000000000006
+  },
+  "humidity": {
+    "q1": 35.2,
+    "q3": 40.0,
+    "iqr": 4.799999999999997,
+    "mild_lower": 32.800000000000004,
+    "mild_upper": 42.4,
+    "strong_lower": 30.400000000000006,
+    "strong_upper": 44.8,
+    "extreme_lower": 28.000000000000007,
+    "extreme_upper": 47.199999999999996
+  }
+}

@@ -21,7 +21,7 @@ Ce fichier donne à Claude Code le contexte nécessaire pour travailler efficace
 
 - **Backend** : FastAPI (Python)
 - **Frontend** : React
-- **Base de données source** : PostgreSQL (`datacenter_ops`), accès via **SQLAlchemy avec `URL.create()`** (jamais psycopg2 direct — gestion des caractères spéciaux du mot de passe)
+- **Base de données source** : PostgreSQL (`datacenter_ops`) — **non joignable directement** (plateforme isolée qui garde la base intouchable). Les données sont fournies en **exports CSV** des tables, ingérés par l'ETL. (Si un accès SQLAlchemy devenait possible : `URL.create()`, jamais psycopg2 direct.)
 - **ML/Data science** : pandas, numpy, scikit-learn, implémentation de modèles entrainés dur les données pour pouvoir détécter les anomalies et faire des prédictions
 - **Langue de dev** : Python par défaut ; Scala/Spark uniquement si explicitement demandé
 
@@ -54,14 +54,14 @@ datapulse/
 ## 4. État du pipeline ML (déjà validé — ne pas refaire, réutiliser)
 
 ### Données
-Trois tables PostgreSQL : `temp_humidity` (~107k lignes, capteurs `SITE01_SALLE_SWITCH`), `scada_logs`, `ups_events`.
+Trois tables sources, fournies en **exports CSV** (PostgreSQL `datacenter_ops` non joignable) : `temp_humidity` (~107k lignes, capteur `SITE01_SALLE_SWITCH`), `scada_logs`, `ups_events`. **Granularité de détection : par salle** (capteur salle switch), pas par unité STULZ individuelle.
 
 ### Preprocessing (pipeline complet et validé)
 - Déduplication : 242 timestamps dupliqués identifiés, lignes dégradées (humidité NaN) confirmées comme valeurs de repli
 - Classification des gaps : seuil >125s = discontinuité (coupures secteur ou pannes de communication SCADA)
 - Segmentation via `cumsum()` sur les discontinuités (~1 904 segments)
 - Rolling stats multi-échelle : fenêtres 12/36/78 points (~24min/1h12/2h36), choisies par analyse ACF
-- Seuils de sévérité directionnels basés sur Tukey IQR : `mild_upper=27.85°C`, `extreme_upper=30.40°C`
+- Seuils de sévérité directionnels basés sur Tukey IQR : `mild_upper=26.75°C`, `extreme_upper=28.65°C` (valeurs livrées avec le modèle `environmental`, split train — cf. `models/environmental/thresholds.json` du package mlops-api)
 - Détection d'épisodes par hystérésis : 201 épisodes bruts → 27-36 épisodes cohérents (`exit_margin=0.5`, `min_exit_duration=5`)
 
 
@@ -85,7 +85,7 @@ Le design system DataPulse est produit séparément via Claude Design (esthétiq
 ## 7. Contraintes connues
 
 - Le notebook d'origine (Databricks) ne permet pas l'installation de packages externes — **cette contrainte ne s'applique qu'au pipeline ML notebook, pas au backend FastAPI**, qui est libre d'installer ce dont il a besoin.
-- Ne pas faire de claims de performance quantitatifs dans la documentation/livrable avant la validation finale contre `scenario_6_label`.
+- Ne pas faire de claims de performance quantitatifs au-delà des métriques livrées avec les modèles (`metadata.json` — ex. F1 anomalie `environmental` = 0.83). Aucun jeu de labels ground-truth externe n'est disponible pour une validation supplémentaire.
 
 ## 8. Journal des sessions
 
@@ -93,4 +93,4 @@ Le design system DataPulse est produit séparément via Claude Design (esthétiq
 
 ## 9. Ordre de développement
 
-Voir `ROADMAP.md` pour le détail des étapes. En résumé : backend avec données mockées d'abord → frontend branché sur les mocks → intégration progressive du vrai pipeline ML → validation Scenario 6 → extension UPS/generator.
+Voir `ROADMAP.md` pour le détail des étapes. En résumé : backend avec données mockées d'abord → frontend branché sur les mocks → intégration progressive du vrai pipeline ML (package `mlops-api` livré) → extension UPS/generator. Architecture des données : `docs/data-architecture.md`.

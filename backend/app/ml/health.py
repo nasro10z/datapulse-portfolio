@@ -10,7 +10,7 @@ Attendu :
     la logique de scoring composite arrêtée (point ouvert Phase 8). YANAN reste
     en baseline (installés 2025).
   - `get_forecast(horizon)` : historique + prévision + bande de confiance, avec
-    franchissements de seuil prévus (seuils Tukey 27.85 / 30.40 °C).
+    franchissements de seuil prévus (seuils Tukey 26.75 / 28.65 °C).
 """
 from app.models.health import ForecastHorizon, ForecastResponse, HealthOverview
 

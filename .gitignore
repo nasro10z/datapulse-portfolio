@@ -10,6 +10,10 @@ __pycache__/
 # État applicatif local (SQLite) — recréé au démarrage
 backend/data/
 
+# Données sources brutes (fournies manuellement, volumineuses) — ne pas committer.
+# À déposer dans backend/app/ml/data/raw/ (voir docs/ml-data-integration.md).
+backend/app/ml/data/
+
 # Node
 node_modules/
 dist/
