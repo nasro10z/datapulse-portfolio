@@ -31,19 +31,38 @@ pures** (DataFrame → DataFrame, aucune I/O) :
 | `config.py` | poids v1.0, mots-clés d'alarme, dates/intervalles de PM, seuils de statut, bornes de plausibilité capteur |
 | `features.py` | helpers (décroissance, saturation, durée continue, risque PM) + features horaires environnement / énergie / batterie |
 | `scoring.py` | risques de base → calibration énergie → score global, domaine dominant, statut, priorité, action conseillée |
-| `forecasting.py` | features de prévision, entraînement des candidats, sélection sur validation, déroulé récursif |
+| `forecast_features.py` | fabrique de features dynamiques (~1 200 : retards, variations, vitesses, stats et pentes glissantes, accélération, dégradation continue, interactions) |
+| `forecasting.py` | cible delta, entraînement XGBoost, sélection top-N sur validation, déroulé récursif amorti |
 
 **Fidélité prouvée** : `tests/test_health_score.py::test_scoring_reproduces_notebook_output`
 compare la sortie aux scores du notebook (`site_health_scores_v1_0.csv`) sur les
 entrées livrées → égalité exacte. C'est ce test qui permet de faire évoluer ce
 package sans reperdre la validation faite par l'équipe data science.
 
-**Prévision** : la cible validée est la santé globale à **+6 h**. Trois candidats
-(persistance, régression linéaire, gradient boosting) sont entraînés et le meilleur
-**sur la validation** est retenu — sur ces données c'est la persistance, comme dans
-le notebook où aucun modèle ne la bat. Au-delà de +6 h : déroulé récursif à
-conditions inchangées, bande élargie en √pas. Artefacts + métriques des trois
-candidats dans `models/health_forecast/`.
+**Prévision — XGBoost sur le delta.** La cible apprise est la **variation** de
+santé à +6 h, pas le niveau :
+
+```
+delta_prévu  = XGBoost(features)
+santé_prévue = clip(santé_courante + delta_prévu, 0, 100)
+```
+
+C'est ce changement de cible qui débloque tout. `overall_site_health` se comporte
+comme un AR(1) : prédire le niveau, c'est demander à des arbres d'extrapoler une
+tendance, ce qu'ils ne savent pas faire — aucun modèle du notebook n'y battait la
+persistance. Prédire le delta fait de la persistance un simple « delta = 0 », et il
+ne reste au modèle qu'à apprendre l'écart.
+
+Le modèle est d'abord entraîné sur les ~1 200 features dynamiques, puis
+**réentraîné sur les N features les plus importantes** avec N ∈ {20, 50, 100, 200}
+choisi sur la **validation**. Moins de features, moins de place pour surapprendre
+sur ~2 100 heures.
+
+Au-delà de +6 h : déroulé récursif à conditions inchangées, chaque delta au-delà du
+premier pas **amorti** géométriquement (sinon la trajectoire se compose et sature à
+100/100), bande élargie en √pas. Artefacts, features retenues et métriques
+(persistance, modèle servi, variante pondérée sur les chutes) dans
+`models/health_forecast/metadata.json`.
 
 ## Le seam mock ↔ live (Phase 8)
 
@@ -54,6 +73,18 @@ vers `mocks/` ou `ml/` selon une seule variable :
 DATA_SOURCE=mock   # défaut — générateurs seedés (Phases 1–7)
 DATA_SOURCE=live   # pipeline ML validé (package mlops-api) sur données CSV
 ```
+
+Une **dérogation par domaine** permet de n'en basculer qu'une partie ; non
+renseignée, le domaine suit `DATA_SOURCE` :
+
+```
+ANOMALIES_SOURCE=mock   # anomalies mockées…
+HEALTH_SOURCE=live      # …santé sur le pipeline réel
+```
+
+Utile en démo : les épisodes réels s'arrêtent au 09/05/2026, donc les vues
+d'anomalies bornées à une fenêtre récente (24 h / 7 j) n'ont rien à montrer, alors
+que les scores de santé se lisent très bien sur la dernière heure connue.
 
 Les routes n'importent jamais `mocks/` ni `ml/` directement. Brancher le pipeline
 réel = implémenter les stubs ci-dessous, pas toucher aux routes.

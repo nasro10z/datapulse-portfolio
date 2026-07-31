@@ -40,6 +40,32 @@ Les deux fichiers que lit le notebook existaient déjà comme **références de 
 - Pipeline complet réel (`python -m app.etl.run --train`) : bronze 137 970 + 3 274 → silver 107 047 + 2 569 → gold 388 épisodes, 2 137 heures scorées, 4 lignes d'instantané, 164 points de prévision.
 - Navigateur en `DATA_SOURCE=live` : **Aperçu** (global 69,9 · Env 90,0 · Énergie 68,4 · Batterie 54,2 · prochaine panne = Batterie · anomalies `SALLE_SWITCH`), **Santé du site** (score, 3 domaines, courbes 7/30/90 j), **Prévision** (pannes par domaine, courbe globale historique+prévision continue, 1 franchissement, 3 sous-scores). Aucune erreur console.
 
+### Correctif de suivi — source par domaine (anomalies en mock pour la démo)
+
+**Demande** : anomalies en mock, le reste en live, pour la démo.
+
+`DATA_SOURCE` pilotait les deux domaines d'un bloc. Ajout d'une **dérogation par domaine** dans `config.py` : `ANOMALIES_SOURCE` et `HEALTH_SOURCE`, non renseignées par défaut → le domaine suit `DATA_SOURCE`. Un seul bouton dans le cas général, la granularité ne se paie que si on la demande. `providers.py` lit les propriétés résolues ; aucune route touchée.
+
+`backend/.env` (local, gitignoré) : `DATA_SOURCE=live` + `ANOMALIES_SOURCE=mock`. Vérifié : anomalies = 30 épisodes mockés (STULZ-xx, dates autour de maintenant, fenêtre 24 h non vide, 1 ouverte / 1 acquittée / 28 résolues) et santé toujours réelle (global 69,9 · Env 90,0 · Énergie 68,4 · Batterie 54,2, dernière heure 10/05/2026).
+
+**Au passage** : `conftest.py` crée désormais les tables au chargement au lieu de compter sur la fixture `client`. La fixture autouse écrit dans la base applicative après *chaque* test, y compris ceux qui ne montent pas le client — lancer un fichier de tests seul échouait sur des tables absentes selon l'ordre alphabétique.
+
+### Correctif de suivi — passage à XGBoost delta (notebook mis à jour)
+
+**Retour utilisateur** : « la persistance ne prédit rien, elle donne l'ancienne valeur — passe au modèle XGBoost trouvé dans le notebook. » Le notebook a été mis à jour entre-temps (113 → 224 cellules) : la version que j'avais portée ne contenait que des modèles prédisant le **niveau**, la nouvelle ajoute la section qui règle le problème.
+
+**Ce qui change tout — la cible** : `target_health_change_6h = target_health_6h - overall_site_health`. La santé globale se comporte comme un AR(1) ; prédire le niveau revient à demander à des arbres d'extrapoler une tendance, ce qu'ils ne savent pas faire. Sur le **delta**, la persistance n'est plus qu'un « delta = 0 » et le modèle n'apprend que l'écart. Reconstruction : `clip(santé_courante + delta, 0, 100)`.
+
+**Porté** :
+- `ml/health_score/forecast_features.py` (nouveau) : ~1 200 features dynamiques sur 22 variables sources — retards, variations, vitesses, moyennes/écarts/min/max/étendues glissantes, **pentes** glissantes (forme fermée des moindres carrés), accélération, compteurs de dégradation continue, interactions entre sous-systèmes.
+- `forecasting.py` réécrit : XGBoost « large » pour classer les features, puis réentraînement sur les **top 20 / 50 / 100 / 200** avec N choisi sur la **validation** → **top 20** retenu (MAE val. 5,80 vs 6,19-6,28 pour les autres ; le notebook obtient 5,79 sur les mêmes tailles — portage fidèle).
+- Variante **pondérée** sur les heures de chute (poids 1,25 / 1,75 / 2,50 selon l'amplitude) conservée dans les métriques : meilleure sur les chutes, moins bonne en MAE globale — donc pas le modèle servi.
+- Dépendance ajoutée : `xgboost` (3.3.0) dans `requirements.txt`. L'ETL seul l'utilise ; l'API ne charge aucun modèle.
+
+**Amortissement du déroulé récursif** (décision propre à l'application, absente du notebook qui ne fait pas de multi-pas) : le modèle n'est validé qu'à +6 h. Réappliqué tel quel, son delta se compose et la trajectoire 7 j **saturait à 100/100** — annoncer « site parfait pendant une semaine » est un pire mensonge qu'une droite plate. Chaque delta au-delà du premier pas est donc réduit géométriquement (`RECURSIVE_DELTA_DAMPING = 0.5`), ce qui borne l'excursion totale à ~2× le premier pas. Résultat servi : 69,9 → convergence vers 76,4 au lieu de 100.
+
+**Écart honnête sur le test** : le notebook rapporte XGBoost top 20 à MAE 5,03 contre persistance 6,00 (+0,97). Sur notre gold : **6,085 contre 6,124 (+0,04)** ; sur les scores du notebook eux-mêmes, mon portage donne 5,70 contre 5,95 (+0,25) en retenant top 100. Les MAE de **validation** coïncident (5,80 vs 5,79), donc la méthode est fidèle ; l'écart au test vient du jeu de test lui-même (~316 heures, erreur à queue lourde) et de la divergence environnementale du millésime d'export déjà documentée. Le gain réel pour le produit n'est pas le dixième de MAE : c'est que **la courbe bouge enfin**, portée par un modèle.
+
 ### Correctif de suivi — fenêtre Anomalies vide
 
 **Constat** : les KPI « 24 h / 7 j » de la page Anomalies affichaient 0 et le donut « Répartition par modèle » était vide, alors que le gold contient bien **388 épisodes** (`/api/anomalies/stats` et l'histogramme, non fenêtrés, les affichent).
@@ -51,7 +77,8 @@ Les deux fichiers que lit le notebook existaient déjà comme **références de 
 Ancrage volontairement sur la **fin de la couverture capteur**, pas sur le dernier épisode : une fenêtre calée sur le dernier épisode contiendrait toujours au moins une anomalie par construction et ne mesurerait plus rien. Conséquence assumée : 24 h et 7 j restent à **0** — les 9 derniers jours d'observation sont réellement sans anomalie — mais le panneau dit maintenant « rien à signaler sur la période » au lieu de paraître cassé.
 
 ### En suspens
-- Prévision **plate** tant que la persistance gagne : c'est le résultat honnête, mais le modèle linéaire est à 0,17 MAE près et donnerait une courbe qui bouge — arbitrage produit à trancher.
+- Gain au test mince (+0,04 MAE) face à la persistance, là où le notebook obtient +0,97. À revoir si l'écart environnemental du millésime d'export est résorbé (export brut aligné sur `temp_humid_last.csv`).
+- Notebook cellules 192-222 non portées : pipeline v2, évaluation *walk-forward*, temps d'avance des alertes, score énergie+batterie 2022 pour validation inter-périodes, réglage Optuna. LightGBM (MAE test 5,025, à 0,007 d'XGBoost top 20) écarté pour ne pas ajouter une seconde dépendance de gradient boosting.
 - `weight_version` v1.0 figée : le notebook a des curseurs de poids (ipywidgets) non exposés dans l'application ; `recalculate_health_scores` n'a pas été porté (pas de surface UI pour le piloter).
 - Dates de PM en dur (`ENV_LAST_PM_DATE`, `ENERGY_LAST_PM_DATE`) — à brancher sur les plannings réels de `pm_schedules` (état applicatif) pour que le risque de PM suive les interventions saisies.
 - Phase 8 H (temps réel/incrémental) toujours bloquée : pas de flux source.

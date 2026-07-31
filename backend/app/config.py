@@ -16,9 +16,25 @@ class Settings(BaseSettings):
 
     # Source des données métier (santé, forecast, anomalies) :
     #   "mock" — générateurs seedés (Phases 1–7, défaut)
-    #   "live" — pipeline ML validé branché sur PostgreSQL (Phase 8)
+    #   "live" — pipeline ML validé, lecture du gold précalculé (Phase 8)
     # Le basculement se fait par cette seule variable ; voir app/providers.py.
     data_source: Literal["mock", "live"] = "mock"
+
+    # Dérogation par domaine, pour ne basculer qu'une partie de l'application.
+    # Non renseignée → le domaine suit `data_source`. Utile en démo : les données
+    # réelles s'arrêtent en mai 2026, donc les vues d'anomalies bornées à une
+    # fenêtre récente n'ont rien à montrer, alors que les scores de santé, eux,
+    # se lisent très bien sur la dernière heure disponible.
+    anomalies_source: Literal["mock", "live"] | None = None
+    health_source: Literal["mock", "live"] | None = None
+
+    @property
+    def resolved_anomalies_source(self) -> str:
+        return self.anomalies_source or self.data_source
+
+    @property
+    def resolved_health_source(self) -> str:
+        return self.health_source or self.data_source
 
     # Source de données (lecture) — PostgreSQL datacenter_ops
     db_host: str = "localhost"
@@ -37,7 +53,11 @@ class Settings(BaseSettings):
     # Voir docs/data-architecture.md. Un seul écrivain (ETL) par fichier.
     analytics_db_path: Path = BACKEND_ROOT / "data" / "datapulse_analytics.db"
 
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://0.0.0.0:5173",
+    ]
 
 
 settings = Settings()

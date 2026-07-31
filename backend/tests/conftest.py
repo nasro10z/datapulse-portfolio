@@ -22,10 +22,17 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import delete  # noqa: E402
 
-from app.db.app_db import get_app_engine, get_sessionmaker  # noqa: E402
+from app.db.app_db import get_app_engine, get_sessionmaker, init_db  # noqa: E402
 from app.db.tables import AnomalyAction, ReminderAction  # noqa: E402
 from app.main import app  # noqa: E402
-from app.storage.analytics_db import get_analytics_engine  # noqa: E402
+from app.storage.analytics_db import get_analytics_engine, init_analytics_db  # noqa: E402
+
+# Tables créées dès le chargement, sans attendre la fixture `client` : la fixture
+# autouse ci-dessous écrit dans la base applicative après **chaque** test, y compris
+# ceux qui ne montent pas le client. Sans ça, lancer un fichier de tests seul
+# échouait sur des tables absentes selon l'ordre alphabétique.
+init_db()
+init_analytics_db()
 
 
 @pytest.fixture(scope="session")

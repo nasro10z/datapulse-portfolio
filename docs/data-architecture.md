@@ -108,7 +108,9 @@ Configuration (`config.py` / `.env`) :
 ```
 ANALYTICS_DB_PATH=backend/data/datapulse_analytics.db   # défaut
 APP_DB_PATH=backend/data/datapulse.db                   # existant
-DATA_SOURCE=mock                                         # existant (mock|live)
+DATA_SOURCE=mock                                        # global (mock|live)
+ANOMALIES_SOURCE=                                       # dérogation par domaine
+HEALTH_SOURCE=                                          #   vide → suit DATA_SOURCE
 ```
 
 ---
@@ -275,13 +277,20 @@ sortie aux scores du notebook (`site_health_scores_v1_0.csv`) sur les entrées
 livrées → égalité exacte (< 1e-6). C'est ce test qui autorise à faire évoluer
 `ml/health_score` sans reperdre la validation faite par l'équipe data science.
 
-**Prévision** (`ml/health_score/forecasting.py`) : cible = santé globale à +6 h.
-Trois candidats sont entraînés (persistance, régression linéaire, gradient
-boosting) et **le meilleur sur la validation est retenu** — sur ces données c'est
-la persistance, conformément au notebook où aucun modèle ne la bat. Au-delà de
-+6 h, la trajectoire vient d'un déroulé récursif à conditions inchangées (seuls le
-calendrier et le risque de PM évoluent), avec une bande qui s'élargit en √pas à
-partir de l'écart-type des résidus de test.
+**Prévision** (`ml/health_score/forecasting.py`) : **XGBoost sur le delta**. La
+cible apprise est la *variation* de santé à +6 h, pas le niveau — la santé globale
+se comportant comme un AR(1), prédire le niveau revient à demander à des arbres
+d'extrapoler une tendance, et aucun modèle du notebook n'y battait la persistance.
+Sur le delta, la persistance devient « delta = 0 » et le modèle n'apprend que
+l'écart. Entraînement sur ~1 200 features dynamiques
+(`ml/health_score/forecast_features.py`), puis réentraînement sur les **N features
+les plus importantes**, N ∈ {20, 50, 100, 200} choisi sur la validation.
+
+Au-delà de +6 h : déroulé récursif à conditions inchangées (seuls le calendrier et
+le risque de PM évoluent), chaque delta au-delà du premier pas **amorti**
+géométriquement — sans quoi la trajectoire se compose et sature à 100/100 sur 7
+jours — avec une bande qui s'élargit en √pas à partir de l'écart-type des résidus
+de test.
 
 ### Lancer le pipeline
 

@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.etl.score import build_snapshot_rows, score_site_health, status_for, trend_for
 from app.etl.transform import transform_scada
+from app.ml.health_score import config as cfg
 from app.ml.health_score import forecasting
+from app.ml.health_score.forecast_features import build_dynamic_features, sources_used_by
 from app.ml.health_score.scoring import compute_health_scores
 from app.models.health import HealthStatus, Trend
 from app.storage.repositories import bronze_repo, gold_repo, silver_repo
@@ -119,18 +121,65 @@ def test_status_thresholds():
 
 
 # -------------------------------------------------------------------- prévision
-def test_training_selects_the_best_candidate_on_validation():
-    scores = compute_health_scores(_synthetic_env(1200), _synthetic_scada(1200))
-    artifacts = forecasting.train(scores)
+@pytest.fixture(scope="module")
+def trained():
+    """Scores + artefacts entraînés une seule fois pour tout le module.
 
-    assert artifacts["selected_model"] in {"persistence", "linear", "gradient_boosting"}
-    validation_maes = {
-        name: metrics["validation_MAE"]
-        for name, metrics in artifacts["metrics"].items()
-        if isinstance(metrics, dict) and "validation_MAE" in metrics
-    }
-    assert artifacts["selected_model"] == min(validation_maes, key=validation_maes.get)
+    L'entraînement enchaîne six ajustements XGBoost sur ~1 000 features : le refaire
+    par test ferait passer la suite de quelques minutes à une dizaine.
+    """
+    scores = compute_health_scores(_synthetic_env(1200), _synthetic_scada(1200))
+    return scores, forecasting.train(scores)
+
+
+def test_training_selects_the_feature_count_that_wins_on_validation(trained):
+    """Le nombre de features est choisi sur la validation, pas décidé d'avance."""
+    _scores, artifacts = trained
+
+    validation_maes = artifacts["metrics"]["validation_by_feature_count"]
+    best = min(validation_maes, key=validation_maes.get)
+    assert artifacts["feature_count"] == int(best)
+    assert artifacts["selected_model"] == f"xgboost_top_{best}"
+    assert len(artifacts["feature_columns"]) == artifacts["feature_count"]
     assert artifacts["residual_std"] > 0
+
+
+def test_target_is_the_delta_so_persistence_is_delta_zero():
+    """La cible apprise est la **variation** à 6 h : c'est ce qui permet de battre
+    la persistance, qui n'est alors rien d'autre que « delta = 0 »."""
+    scores = compute_health_scores(_synthetic_env(400), _synthetic_scada(400))
+    frame = forecasting.build_forecast_features(scores)
+
+    reconstructed = frame["overall_site_health"] + frame["target_health_change_6h"]
+    pd.testing.assert_series_equal(
+        reconstructed.dropna(), frame["target_health_6h"].dropna(),
+        check_names=False, atol=1e-9, rtol=0,
+    )
+
+
+def test_dynamic_features_do_not_look_into_the_future():
+    """Aucune feature dynamique ne doit dépendre d'une ligne future : sinon le
+    modèle « prédit » en lisant la réponse, et la validation ne veut plus rien dire."""
+    scores = compute_health_scores(_synthetic_env(400), _synthetic_scada(400))
+    frame = forecasting.build_forecast_features(scores)
+    full = build_dynamic_features(frame)
+
+    cutoff = len(frame) - 30
+    truncated = build_dynamic_features(frame.iloc[:cutoff])
+    row = truncated.index[-1]
+
+    common = [c for c in truncated.columns if c in full.columns]
+    pd.testing.assert_series_equal(
+        full.loc[row, common], truncated.loc[row, common], check_names=False, atol=1e-9, rtol=0,
+    )
+
+
+def test_prediction_only_needs_the_sources_its_features_use():
+    """Au déroulé, seules les variables sources utiles au modèle sont dérivées —
+    recalculer les ~1 200 features candidates à chaque pas serait du travail jeté."""
+    selected = ["energy_risk_score_rollmax_6h", "battery_risk_score_lag_24h",
+                "interaction_environmental_energy_risk"]
+    assert sources_used_by(selected) == ["energy_risk_score", "battery_risk_score"]
 
 
 def test_training_refuses_a_history_too_short_to_learn_from():
@@ -139,9 +188,8 @@ def test_training_refuses_a_history_too_short_to_learn_from():
         forecasting.train(scores)
 
 
-def test_recursive_forecast_covers_the_horizon_with_a_widening_band():
-    scores = compute_health_scores(_synthetic_env(1200), _synthetic_scada(1200))
-    artifacts = forecasting.train(scores)
+def test_recursive_forecast_covers_the_horizon_with_a_widening_band(trained):
+    scores, artifacts = trained
     trajectory = forecasting.forecast_recursive(scores, artifacts, hours=24)
 
     assert len(trajectory) == 4  # 24 h par pas de 6 h
@@ -149,3 +197,21 @@ def test_recursive_forecast_covers_the_horizon_with_a_widening_band():
     assert trajectory["value"].between(0, 100).all()
     widths = trajectory["upper"] - trajectory["lower"]
     assert widths.is_monotonic_increasing, "l'incertitude doit croître avec l'horizon"
+
+
+def test_recursive_forecast_is_damped_and_cannot_run_away(trained):
+    """Sans amortissement, le delta se compose pas après pas et la trajectoire
+    finit par saturer à 0 ou 100 — « site parfait pendant un mois » est un pire
+    mensonge qu'une droite plate."""
+    scores, artifacts = trained
+    trajectory = forecasting.forecast_recursive(scores, artifacts, hours=30 * 24)
+
+    last_observed = float(scores["overall_site_health"].iloc[-1])
+    first_step = abs(trajectory["value"].iloc[0] - last_observed)
+    excursion = (trajectory["value"] - last_observed).abs().max()
+
+    # Somme géométrique bornée : delta / (1 - amortissement), plus une marge.
+    bound = first_step / (1 - cfg.RECURSIVE_DELTA_DAMPING) + 1.0
+    assert excursion <= bound, f"excursion {excursion:.2f} > borne {bound:.2f}"
+    assert trajectory["value"].max() < 100.0
+    assert trajectory["value"].min() > 0.0

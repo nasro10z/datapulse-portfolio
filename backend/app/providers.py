@@ -40,11 +40,11 @@ from app.services import anomaly_aggregation as agg
 
 
 def _anomaly_source():
-    return ml_anomalies if settings.data_source == "live" else mock_anomalies
+    return ml_anomalies if settings.resolved_anomalies_source == "live" else mock_anomalies
 
 
 def _health_source():
-    return ml_health if settings.data_source == "live" else mock_health
+    return ml_health if settings.resolved_health_source == "live" else mock_health
 
 
 # ---- Santé / forecast ----

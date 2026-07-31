@@ -1,5 +1,5 @@
 """Seam mock ↔ live (Phase 8) : l'aiguillage se fait par `settings.data_source`,
-lu à chaud par `app/providers.py`."""
+avec dérogation possible par domaine, lu à chaud par `app/providers.py`."""
 import pytest
 
 from app.config import Settings, settings
@@ -12,12 +12,33 @@ def test_shipped_default_source_is_mock():
     assert Settings.model_fields["data_source"].default == "mock"
 
 
+def test_domain_override_falls_back_to_the_global_source():
+    """Sans dérogation, un domaine suit `data_source` : un seul bouton dans le cas
+    général, la granularité ne se paie que si on la demande."""
+    assert Settings.model_fields["anomalies_source"].default is None
+    assert Settings.model_fields["health_source"].default is None
+
+    both_live = Settings(data_source="live", anomalies_source=None, health_source=None)
+    assert both_live.resolved_anomalies_source == "live"
+    assert both_live.resolved_health_source == "live"
+
+
+def test_domain_override_wins_over_the_global_source():
+    """Cas démo : santé sur le pipeline réel, anomalies en mock — les épisodes
+    réels s'arrêtant en mai 2026, les vues à fenêtre récente n'ont rien à montrer."""
+    mixed = Settings(data_source="live", anomalies_source="mock")
+    assert mixed.resolved_anomalies_source == "mock"
+    assert mixed.resolved_health_source == "live"
+
+
 @pytest.fixture
 def live_source():
-    old = settings.data_source
+    old = (settings.data_source, settings.anomalies_source, settings.health_source)
     settings.data_source = "live"
+    # Les dérogations sont neutralisées : ces tests portent sur le seam global.
+    settings.anomalies_source = settings.health_source = None
     yield
-    settings.data_source = old
+    settings.data_source, settings.anomalies_source, settings.health_source = old
 
 
 @pytest.fixture

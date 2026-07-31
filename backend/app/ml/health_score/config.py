@@ -186,7 +186,7 @@ PRIORITY_DEFAULT = "P5 - Routine"
 # --- Prévision --------------------------------------------------------------
 FORECAST_HORIZON_HOURS = 6          # cible : santé globale à +6 h
 HEALTH_LAGS = [1, 2, 3, 6, 12, 24, 48, 72, 168]
-ROLLING_WINDOWS = [6, 12, 24, 72, 168]
+ROLLING_WINDOWS_BASIC = [6, 12, 24, 72, 168]   # features de base (santé globale)
 SUBSYSTEM_LAGS = [1, 6, 12, 24]
 CHANGE_PERIODS = [1, 3, 6, 12, 24]
 MAJOR_DROP_THRESHOLD = -10.0        # chute de santé (points) sur 6 h
@@ -219,3 +219,76 @@ REQUIRED_FORECAST_FEATURES = [
     "overall_health_lag_6h",
     "overall_health_lag_24h",
 ]
+
+# Colonnes de cible / d'étiquette : jamais utilisables comme features (fuite).
+TARGET_AND_LABEL_COLUMNS = {
+    "target_health_6h", "target_health_change_6h", "health_change_6h",
+    "major_drop_6h", "severe_drop_6h",
+}
+
+# --- Features dynamiques étendues (entrée du modèle XGBoost) -----------------
+# Variables sources sur lesquelles la fabrique de features est déroulée. Celles
+# qui n'existent pas dans la table horaire sont ignorées silencieusement.
+DYNAMIC_SOURCE_VARIABLES = [
+    "overall_site_health",
+    "environmental_health_score", "energy_health_score", "battery_health_score",
+    "environmental_risk_score", "energy_risk_score", "energy_risk_score_calibrated",
+    "battery_risk_score",
+    "environmental_base_risk", "energy_base_risk", "battery_base_risk",
+    "environmental_anomaly_burden", "energy_anomaly_burden", "battery_anomaly_burden",
+    "environmental_pm_risk", "energy_pm_risk", "battery_pm_risk",
+    "temperature", "humidity",
+    "outage_duration_hours", "battery_alarm_duration_hours",
+    "overall_site_health_volatility_24h", "overall_site_health_trend_24h",
+]
+
+LAG_HOURS = [1, 2, 3, 6, 12, 24, 48]
+CHANGE_HOURS = [1, 2, 3, 6, 12, 24]
+RATE_HOURS = [3, 6, 12, 24]
+ROLLING_WINDOWS = [3, 6, 12, 24]               # features dynamiques (toutes sources)
+SLOPE_WINDOWS = [3, 6, 12, 24]
+ACCELERATION_HOURS = [1, 3, 6]
+
+CALENDAR_FEATURE_COLUMNS = [
+    "hour_sin", "hour_cos", "day_of_week_sin", "day_of_week_cos", "is_weekend",
+]
+
+# --- Modèle de prévision : XGBoost sur le delta ------------------------------
+# Cible = la **variation** de santé à +6 h, pas le niveau. La persistance devient
+# alors « delta = 0 » : le modèle n'a plus à réapprendre le niveau (ce que les
+# arbres ne savent pas extrapoler), seulement l'écart à la persistance. C'est ce
+# changement de cible qui fait passer devant la persistance.
+XGB_FEATURE_COUNTS = [20, 50, 100, 200]
+
+# Modèle « large » servant uniquement à classer les features par importance.
+XGB_RANKING_PARAMS = {
+    "objective": "reg:squarederror",
+    "n_estimators": 2000, "learning_rate": 0.02,
+    "max_depth": 4, "min_child_weight": 8,
+    "subsample": 0.80, "colsample_bytree": 0.70,
+    "reg_alpha": 1.0, "reg_lambda": 10.0,
+    "tree_method": "hist", "eval_metric": "mae", "early_stopping_rounds": 100,
+    "random_state": 42, "n_jobs": -1,
+}
+
+# Modèles candidats sur les N features les mieux classées (arbres moins profonds :
+# moins de features, donc moins de place pour surapprendre).
+XGB_SELECTION_PARAMS = {
+    **XGB_RANKING_PARAMS,
+    "max_depth": 3, "colsample_bytree": 0.80,
+}
+
+# Variante pondérée : les heures de dégradation pèsent plus lourd. Elle perd un
+# peu de MAE globale et gagne sur les heures de chute — arbitrage conservé dans
+# les métriques, mais ce n'est pas le modèle servi.
+XGB_WEIGHTED_PARAMS = {**XGB_SELECTION_PARAMS, "min_child_weight": 8}
+DROP_SAMPLE_WEIGHTS = {-5.0: 1.25, -10.0: 1.75, -20.0: 2.50}
+
+# Amortissement du déroulé récursif au-delà du pas validé (+6 h).
+# Le modèle n'est validé qu'à +6 h. Réappliqué tel quel pas après pas, son delta se
+# compose et la trajectoire s'emballe : sur 7 j elle saturait à 100/100, ce qui
+# annonce « site parfait pendant une semaine » — pire qu'une droite plate. Chaque
+# delta au-delà du premier pas est donc réduit géométriquement : le premier pas
+# reste la prédiction validée, et l'excursion totale est bornée par
+# delta / (1 - amortissement), soit ~2× le premier pas ici.
+RECURSIVE_DELTA_DAMPING = 0.5
