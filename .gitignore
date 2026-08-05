@@ -25,3 +25,9 @@ Thumbs.db
 
 # Config machine-locale (launch.json contient des chemins absolus)
 .claude/
+
+CLAUDE.md
+ROADMAP.md
+SESSIONS.md
+
+docs
