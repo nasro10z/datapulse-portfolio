@@ -83,9 +83,16 @@ Rien d'autre : aucun email, aucune URL externe, aucune adresse, aucun chemin mac
 
 **Risque résiduel assumé** : le journal décrit le contexte (opérateur télécom, data center, parc d'équipements, cadre académique conservé sur décision). Aucun identifiant ne subsiste, mais le recoupement de ces éléments reste possible pour un lecteur déterminé — c'est le prix de garder un journal qui explique le *pourquoi*.
 
+### Commits + réécriture d'historique (1.4) — 2026-09-25
+- **5 commits thématiques** (anonymisation · export gold et recalage · PostgreSQL et lecture seule · model cards · documentation), **sans co-signature Claude** sur décision. Le premier lot a été refait : `main.py` y enregistrait la route `/api/config` dont le module arrivait au lot suivant — le commit n'aurait pas démarré.
+- **Constat en vérifiant l'accès GitHub** : `gh` est installé et authentifié (un push passerait sans rien demander), et l'historique portait **deux identités** — un email académique en `.dz`, qui réintroduisait à chaque commit le pays que l'anonymisation venait de retirer, et le **nom complet + email personnel d'une co-autrice**. Réécrits : `users.noreply` du compte pour l'un (le nom reste), `DataPulse Team` pour l'autre (option retenue par l'utilisateur).
+- **`filter-repo`** sur un clone, 28 commits : `--replace-text` **et** `--replace-message`, les messages de commit portant eux aussi des identifiants (« Sélecteur de site déroulant (… branché ; …/… en démo) »). Règles ordonnées du plus spécifique au plus général — sinon le nom seul mangeait le préfixe du libellé complet — et bornées par des limites de mot pour les noms courts.
+- **Vérifications** : zéro occurrence de chaque terme (contenu et messages, tout l'historique), deux auteurs neutres, et le **tree final identique au local au hash près** — seule l'histoire a changé. Un ancien commit relu à la main se lit de façon cohérente (`id: 'msc10'`, `MSC-10`, `TelcoNet`), pas comme un texte expurgé.
+- **En attente** : le `git push` vers `datapulse-portfolio`, laissé à l'accord explicite. Le clone réécrit vit dans le scratchpad de session, remote déjà configuré.
+
 ### En suspens
 - **0.3 tranché** : le dépôt public cible sera **`datapulse-portfolio`** (nouveau dépôt, à créer sur GitHub ; `datapulse-app` reste privé et intact).
-- **Phase 1 restant** : 1.4 (`filter-repo` → `datapulse-portfolio`, créé) — 1.4 attend 1.3, un terme trouvé hors lexique obligeant à rejouer la réécriture d'historique.
+- **Phase 1 restant** : le seul push vers le dépôt public (1.4 faite) (`filter-repo` → `datapulse-portfolio`, créé) — 1.4 attend 1.3, un terme trouvé hors lexique obligeant à rejouer la réécriture d'historique.
 - **3 tests frontend cassés, préexistants** : à corriger avant la CI de la Phase 6.
 - Rien n'est committé : `.gitignore`, `SESSIONS.md`, `frontend/vite.config.js` modifiés et les deux nouveaux documents `docs/` non suivis.
 

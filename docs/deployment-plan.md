@@ -163,11 +163,28 @@ corrigées, pas seulement un résultat.
 - [ ] Relecture manuelle (le journal est le fichier le plus susceptible de contenir un
       détail client hors lexique)
 
-### 1.4 Historique git
+### 1.4 Historique git — **réécrit, en attente du push**
 
-- [ ] `git filter-repo` sur un **clone**, avec le lexique en table de remplacement
-- [ ] Pousser vers un **nouveau repo public** ; le repo actuel reste **privé et intact**
-- [ ] Vérifier après coup : `git log -S` sur chaque terme du lexique → zéro occurrence
+- [x] Travail courant committé en **5 lots** thématiques (anonymisation · export gold et
+      recalage · PostgreSQL et lecture seule · model cards · documentation), sans
+      co-signature. Un lot a été refait : `main.py` y enregistrait une route dont le module
+      arrivait au lot suivant — le commit n'aurait pas démarré.
+- [x] `git filter-repo` sur un **clone** (28 commits) : `--replace-text` **et**
+      `--replace-message`, les messages portant eux aussi des identifiants. Règles ordonnées
+      du plus spécifique au plus général, et bornées par des limites de mot pour les noms
+      courts.
+- [x] **Identités réécrites** dans la même passe : l'email académique devient l'adresse
+      `users.noreply` du compte (le nom reste — l'attribution fait l'intérêt d'un
+      portfolio), et la co-autrice est neutralisée en `DataPulse Team` sur décision, son
+      adresse personnelle n'ayant pas à être publiée.
+- [x] Vérifié : **zéro occurrence** de chaque terme dans le contenu et dans les messages,
+      sur tout l'historique ; deux auteurs seulement, tous deux neutres ; et le **tree final
+      est identique au local au hash près** — la réécriture n'a touché que l'histoire, pas
+      l'état courant. Les anciens commits se lisent de façon cohérente, pas seulement
+      expurgée.
+- [ ] **`git push` vers `datapulse-portfolio`** — le seul geste irréversible, laissé à
+      l'accord explicite. Le dépôt cible existe et est vide ; le remote est déjà configuré
+      dans le clone réécrit.
 
 On garde ainsi l'historique phasé (qui vaut pour un portfolio) sans le nom du client.
 
