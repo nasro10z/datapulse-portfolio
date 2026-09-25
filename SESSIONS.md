@@ -4,6 +4,93 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 11 — 2026-09-22 — Planification du déploiement portfolio (aucun code modifié)
+
+**Demande** : repartir de `f64f054` (« handover check ») et bâtir un plan pour rendre le projet déployable, en tenant compte du volume des données, de la confidentialité, et du fait qu'il servira de projet portfolio devant montrer le travail ML / data science. Session consacrée à la planification ; l'exécution viendra ensuite.
+
+### Constats de l'audit
+- Les 4 commits de déploiement du 15/08 (`86e30f0` → `039b573`), annulés par le `reset` du 01/09, sont **intacts sur `origin/main`** et leur contenu est encore dans l'index. Travail réutilisable : bundle 633 → 148 Mo, export gold 40 Mo → 1,1 Mo, détection de base en lecture seule, front + API sur un seul domaine.
+- **L'historique git porte le nom du client** (28 commits + `SESSIONS.md`) : anonymiser l'arbre de travail ne suffit pas pour un repo public.
+- **L'export gold casse la source live des anomalies** : `ml/anomalies.py` lit `silver_repo.span_days()` / `last_ts()` sur `th_clean`, table supprimée par `export_gold`. Masqué par `ANOMALIES_SOURCE=mock`, deviendrait un 500 en production.
+- **pandas est sur le chemin de requête** (`gold_repo.read_health_hourly`) : ~90 Mo et ~1 s de démarrage à froid pour une seule ligne de logique pandas réelle.
+- Aucune fuite à ce jour : aucun CSV/XLSX brut ni `.env` jamais commité (vérifié sur tout l'historique).
+
+### Décisions
+- **Confidentialité** : anonymisation complète (code, UI, docs, tests **et historique git** via `filter-repo` vers un nouveau repo public) **+ recalage temporel du gold**, qui règle d'un coup la datation mai 2026 et le rattachement au site réel.
+- **Le recalage débloque le tout-live** : `ANOMALIES_SOURCE=mock` n'a plus de raison d'être, les 388 épisodes réels redeviennent récents → les 5 pages servent de la sortie de pipeline réelle. Contrepartie assumée : bandeau + `data_shift_days` exposé, une démo recalée doit le dire.
+- **Hébergement** : Vercel (front + fonction Python, un seul projet) **+ Postgres managé** pour l'état applicatif — les 6 routes d'écriture ne peuvent pas vivre sur `/tmp` dans une démo publique.
+- **Vitrine ML** : page « Méthode » dans l'application + README portfolio, alimentés par une doc de fond des choix DS/ML.
+- **`SESSIONS.md` est gardé dans le repo public, anonymisé** : c'est la seule trace du *pourquoi* des arbitrages, et la source principale de `docs/ml-decisions.md`.
+- Le déploiement Vercel du 15/08 ayant été supprimé, son erreur n'est plus consultable → on repart d'un déploiement neuf avec vérification `vercel dev` du routage `/api/*` (suspect n°1).
+
+### Réalisations
+- `docs/ml-decisions.md` (nouveau) : pourquoi ces choix DS/ML — problématique et personas → contraintes de données → décisions d'EDA (déduplication, replis capteur, seuil 125 s et segmentation, fenêtres 12/36/78 par ACF, seuils Tukey directionnels, hystérésis, bronze fidèle) → choix des modèles (HMM 6 états, IsolationForest, score pondéré non appris, filtre « HMM + franchissement réel », XGBoost delta top 20) avec les alternatives écartées et les chiffres honnêtes → ce qui est prouvé vs ce qui ne l'est pas.
+- `docs/deployment-plan.md` (nouveau) : plan en 6 phases (récupération, confidentialité, données/recalage, Postgres, Vercel, vitrine) avec lexique d'anonymisation validé, cases à cocher, risques et parades. ~6-7 jours estimés.
+
+### Phase 0 exécutée (même session)
+- **0.1** — Branche `deploy-attempt-v1` créée sur `origin/main` (039b573) : les 4 commits annulés y sont figés et consultables. Arbre ramené à `f64f054` par `git reset --hard`, après sauvegarde de ce qui n'existait nulle part ailleurs : `docs/ml-decisions.md`, `docs/deployment-plan.md`, l'entrée SESSIONS ci-dessus, le réglage local du proxy Vite (`127.0.0.1:8000`) et l'export `datapulse_gold.db` (1,1 Mo, replacé dans `backend/data/`, ignoré par git à ce commit). **85 tests verts** sur la base restaurée.
+- **0.2** — `.gitignore` nettoyé des lignes `CLAUDE.md`, `ROADMAP.md`, `SESSIONS.md` et `docs` : sans effet sur ces fichiers déjà suivis, elles piégeaient en revanche tout nouveau fichier de `docs/`.
+- **Constat** : les 4 commits annulés ne portaient pas que du déploiement, mais aussi une **mise à jour de fond de la documentation**. Le retour à `f64f054` a donc restauré des docs **périmées** (`ml-data-integration.md` et `app/ml/README.md` annoncent encore health/forecast en 501 et les étapes F/I « à venir »), et `handover/current-state.md` n'existe **que** sur la branche. À récupérer depuis `deploy-attempt-v1` en Phases 5.3 et 6, pas à réécrire. Autre conséquence : la doc de la branche est en anglais, l'arbre restauré en français — langue unique à trancher en Phase 6.
+
+### Phase 1.1–1.2 exécutée (même session)
+- **1.1** — Lexique validé. La table de correspondance réelle vit dans `.anonymization-map.local.md`, **gitignoré** : publiée, elle dés-anonymiserait le dépôt d'un coup d'œil. Le plan de déploiement ne décrit donc que les valeurs d'arrivée.
+- **1.2** — 76 remplacements sur 31 fichiers (frontend, backend, tests, docs, README/ROADMAP/CLAUDE), plus les identifiants de site du frontend et la liste des six autres villes du fichier 2022.
+- **Conservés car non identifiants** : `MSC 10` / `MSC10` (terme télécom générique — et c'est la chaîne sur laquelle filtrent l'ETL et le package livré, donc aucun filtre n'est cassé), les noms des fichiers bruts, les marques d'équipement, et `DSIP4 — UC3` (décision : garder, le cadre académique explique les contraintes).
+- **Point dur résolu** : le pipeline reconstruit les messages UPS avec un préfixe qui doit reproduire **à l'identique** celui du fichier de référence livré, sinon le golden test de fidélité compare des chaînes différentes. Ce préfixe porte le nom réel du site → il devient `Settings.raw_ups_message_prefix`, défaut neutre, surchargé par `RAW_UPS_MESSAGE_PREFIX` dans `backend/.env` (gitignoré). Golden tests toujours à 100 % ici ; valeur neutre dans le dépôt public, où ces tests sont de toute façon skippés faute de données brutes.
+- **Validation** : **85 tests backend verts**, fidélité incluse. Frontend : 3 échecs / 10 succès — **préexistants**, vérifié en rejouant la suite sur l'état d'avant anonymisation (contexte react-router nul, libellé « Climatisation » introuvable).
+
+### Phases 1.5 et 2 exécutées (même session)
+- **1.5** — Garde-fou `tests/test_no_client_identifiers.py` : lit les termes interdits dans `.anonymization-map.local.md` (gitignoré) et échoue si l'un d'eux réapparaît ; *skippé* sans ce fichier, donc inoffensif dans le dépôt public. Vérifié **par un cas négatif** (fichier piège → échec), et son message ne réimprime pas le terme, seulement son rang.
+- **Incident** : la seconde passe du script d'anonymisation a touché deux cibles qu'elle n'aurait pas dû — sa propre table de correspondance (reconstruite) et le worktree de la session de fond, `.claude/worktrees/…` (restauré fichier par fichier depuis `git show HEAD:`, en préservant les 4 fichiers de leur travail). Exclusions ajoutées au script.
+- **2.1/2.2** — `export_gold.py` récupéré depuis `deploy-attempt-v1`, plus la table **`gold_meta`** (fin de couverture, étendue, décalage) : l'API borne désormais ses fenêtres sans toucher au silver, ce qui **corrige le 500 en production** qui serait apparu au passage des anomalies en live.
+- **2.3** — `--shift-to-now` : translation unique de toutes les colonnes temporelles, ancrée sur le **dernier score horaire** (+135,5 j). La fin de couverture, qui le suit de 8,4 j, est bornée à l'instant de l'export pour ne pas ouvrir de fenêtre sur le futur. Les statuts d'épisode sont recalculés contre cette borne (no-op sans recalage).
+- **2.4/2.5** — Démo en tout-live (`ANOMALIES_SOURCE=mock` retiré) ; `data_shift_days` exposé par `/api/health/overview`. Résultat servi : `updated_at` à l'heure courante, prévision repartant de maintenant, 388 épisodes récents. KPI anomalies : 24 h = 0, 7 j = 1, 30 j = 77, 90 j = 143 — le zéro à 24 h est **exact**, pas un bug.
+- **2.6** — 6 tests (`tests/test_export_gold.py`). Suite complète : **94 tests verts**.
+- **Piège vécu** : pointer l'API locale sur l'export versionné pour valider la lecture l'a repassé en journal WAL — le test `test_versioned_gold_export_is_not_in_wal_mode` l'a détecté, l'export a été régénéré.
+
+### Phases 3 (code) et 5.1 exécutées (même session)
+- **3.1/3.2** — `APP_DB_URL` : `app/db/app_db.py` résout l'URL par `make_url`, normalise `postgres://` → `postgresql+psycopg2` (encore émis par des hébergeurs, refusé par SQLAlchemy ≥ 1.4) et conserve les options TLS. Aucune dépendance nouvelle (`psycopg2-binary` déjà déclaré). Moteur PostgreSQL en **NullPool** (un pool ne survit pas à l'invocation serverless), `pool_pre_ping` (conteneur réutilisé ↔ connexion coupée côté hébergeur) et `connect_timeout=10`.
+- **3.5** — 6 tests (`tests/test_app_db.py`) : résolution, normalisation des deux schémas, absence de pool, non-fuitage du mot de passe dans `str(url)`. Le test d'aller-retour réel s'active dès que `TEST_APP_DB_URL` est fournie.
+- **3.3 en attente** : il manque la chaîne de connexion Neon (projet Neon dédié), à poser dans `backend/.env`. Le CLI Neon fourni dans le script d'onboarding n'est **pas** nécessaire — il outille un projet Node/TS (`neon.ts`, `neon deploy`, MCP, skills) ; notre backend est Python et n'a besoin que de l'URL, de préférence l'endpoint avec pool.
+- **5.1** — `app/etl/export_model_cards.py` → `frontend/src/data/model-cards.json` : chiffres lus dans les `metadata.json` / `thresholds.json` et les volumes réels des couches, prose éditoriale dans le script. 5 tests, dont un garde-fou qui échoue si le JSON committé devient périmé après réentraînement.
+- Suite complète (hors fidélité) : **98 verts, 1 skippé** (le test Postgres).
+
+### Phase 3.3 exécutée — 2026-09-25
+- Première tentative en échec : la ligne `APP_DB_URL` posée dans `backend/.env` reprenait l'exemple à trous (`<host>-pooler.<region>…`), d'où un `could not translate host name`. Utile malgré tout — tout le chemin de code était validé jusqu'à la résolution DNS.
+- Connexion établie avec la vraie chaîne : **PostgreSQL 18.6**, endpoint **avec pool**, base `neondb`, moteur en `NullPool`.
+- Schéma créé (`pm_schedules`, `anomaly_actions`, `reminder_actions`) par `init_db()`, idempotent. Aller-retour relu par une **nouvelle** connexion : la donnée est côté serveur, pas dans un cache de processus. Test d'intégration `test_app_db.py` : **7/7**, plus aucun skip.
+- Routes d'écriture exercées à travers l'API contre Neon : PM planifiée (201) puis supprimée (204), anomalie acquittée (200), rappel reporté (204). Deux URL de ma sonde étaient fausses (`/schedules` au lieu de `/calendar`, `/schedule/{id}` au singulier) — le contrat de l'API est bien `PM-0004` en identifiant public. Écritures de sonde purgées, 4 PM de démonstration conservées.
+- **À savoir** : en local, `data_shift_days` vaut `None` et les dates restent en mai 2026 — l'application lit la base analytique complète, non recalée. Le recalage ne concerne que l'export servi en déploiement.
+
+### Plannings en lecture seule (3.6) — 2026-09-25
+- **Décision** : sur l'instance publique, les plannings de PM sont **figés** (`PM_READ_ONLY=1`) plutôt que remis à zéro périodiquement. Sans authentification, la saisie d'un visiteur modifierait durablement le calendrier partagé par tous.
+- **Backend** : garde `forbid_when_read_only` sur les trois routes d'écriture → **403** avec un message explicite ; la consultation est intacte. Nouvelle route `GET /api/config` (source des données, plannings figés) — volontairement sans rien sur la base ni l'hébergement, et un test le vérifie.
+- **Frontend** : la configuration est lue **une fois au niveau de l'application** (`src/config.jsx`, `ConfigProvider` + `useConfig`), pas page par page. Premier essai via `useApi(api.config)` dans la page : il cassait 2 tests qui mockent `api` sans cette route (`fn is not a function`). Le provider est meilleur sur les deux plans — le bandeau de démonstration s'en servira aussi, et une page rendue isolément reçoit une valeur par défaut permissive, donc aucun mock à ajouter. Formulaire désactivé par `fieldset disabled` + note : la fonctionnalité reste visible sans être un piège.
+- **Bug attrapé au passage** : `APP_DB_URL` primant sur `APP_DB_PATH`, la suite de tests écrivait dans la base Neon de la démo — et la fixture `reset_user_actions` y purgeait les actions utilisateur après chaque test. La conftest neutralise désormais `APP_DB_URL`. Aucun dégât : les seules écritures ont été créées puis supprimées par les tests eux-mêmes.
+- Frontend : retour au niveau de référence (3 échecs préexistants / 10 succès), build vert.
+
+### Relecture de SESSIONS.md (1.3) — 2026-09-25
+Lecture intégrale des 712 lignes, en cherchant ce que le lexique ne couvre pas : personnes, chemins machine, URL, adresses, tiers, indices géographiques. **Trois trouvailles**, toutes corrigées :
+1. **Noms de villes seuls** — le script d'anonymisation n'avait remplacé que les libellés complets des sites ; les villes employées seules subsistaient dans 4 phrases du journal (7 occurrences). Ce sont elles qui rattachaient le réseau à un pays. Remplacées par les codes de site.
+2. **Nom de personne** — un nom servait de placeholder au champ « technicien » et de donnée de test (5 emplacements, frontend et backend). Remplacé par un libellé i18n (« Nom du technicien » / « Technician name ») côté interface et par des initiales neutres côté tests.
+3. **Identifiant du projet d'hébergement de base** cité dans ce journal — retiré, remplacé par une mention générique.
+
+Rien d'autre : aucun email, aucune URL externe, aucune adresse, aucun chemin machine nominatif (seuls un chemin d'installation Node standard et `127.0.0.1`, génériques), aucun tiers nommé.
+
+**Le garde-fou a appris deux choses au passage.**
+- La recherche en **sous-chaîne** est inutilisable pour les noms courts : un nom de ville de la liste se trouve au milieu d'un participe présent très courant, ce qui faisait échouer le test sur un fichier parfaitement propre. Le test lit désormais **deux blocs** — sous-chaîne pour les identifiants composés (un souligné n'offre pas de limite de mot), mot entier pour les noms courts. Les deux modes sont vérifiés par des fichiers pièges.
+- Un garde-fou **ne doit pas citer les termes qu'il interdit** : ma docstring donnait l'exemple en clair, et le test s'est signalé lui-même.
+
+**Risque résiduel assumé** : le journal décrit le contexte (opérateur télécom, data center, parc d'équipements, cadre académique conservé sur décision). Aucun identifiant ne subsiste, mais le recoupement de ces éléments reste possible pour un lecteur déterminé — c'est le prix de garder un journal qui explique le *pourquoi*.
+
+### En suspens
+- **0.3 tranché** : le dépôt public cible sera **`datapulse-portfolio`** (nouveau dépôt, à créer sur GitHub ; `datapulse-app` reste privé et intact).
+- **Phase 1 restant** : 1.4 (`filter-repo` → `datapulse-portfolio`, créé) — 1.4 attend 1.3, un terme trouvé hors lexique obligeant à rejouer la réécriture d'historique.
+- **3 tests frontend cassés, préexistants** : à corriger avant la CI de la Phase 6.
+- Rien n'est committé : `.gitignore`, `SESSIONS.md`, `frontend/vite.config.js` modifiés et les deux nouveaux documents `docs/` non suivis.
+
+---
+
 ## Session 10 — 2026-07-28 (suite) — Phase 8 F+I : scoring santé réel + prévision (notebook `health_scores.ipynb`)
 
 **Demande** : extraire du notebook `health_scores.ipynb` (dossier `datapulse`, hors dépôt) tout ce qu'il faut pour rendre le score de santé et sa prévision opérationnels dans l'application, et faire descendre les CSV utilisés par le notebook dans les couches bronze / silver / gold.
@@ -39,6 +126,53 @@ Les deux fichiers que lit le notebook existaient déjà comme **références de 
 - `pytest` : **78/78 verts** (65 + 13 nouveaux), dont le golden de fidélité au notebook.
 - Pipeline complet réel (`python -m app.etl.run --train`) : bronze 137 970 + 3 274 → silver 107 047 + 2 569 → gold 388 épisodes, 2 137 heures scorées, 4 lignes d'instantané, 164 points de prévision.
 - Navigateur en `DATA_SOURCE=live` : **Aperçu** (global 69,9 · Env 90,0 · Énergie 68,4 · Batterie 54,2 · prochaine panne = Batterie · anomalies `SALLE_SWITCH`), **Santé du site** (score, 3 domaines, courbes 7/30/90 j), **Prévision** (pannes par domaine, courbe globale historique+prévision continue, 1 franchissement, 3 sous-scores). Aucune erreur console.
+
+### Correctif de suivi — déploiement Vercel monoprojet (front + API)
+
+**Demande** : déployer le backend sur Vercel ou ailleurs, et quoi mettre dans le projet pour qu'il parle au frontend Vercel.
+
+**Conseil donné, choix utilisateur = tout sur Vercel.** Les deux arguments contre étaient : (1) six routes d'écriture couvrant 3 pages sur 5 (planification PM, acquittement d'anomalie, cloche) réussissent puis oublient sur un système de fichiers éphémère ; (2) l'ETL ne peut pas tourner sur Vercel — il lui faut le stack ML, justement exclu du bundle, et un accès en écriture. Le gold y reste donc un instantané exporté à la main. L'utilisateur a tranché pour la démo de consultation, déjà préparée.
+
+**Ajouté** :
+- `api/index.py` — point d'entrée ASGI. Met `backend/` sur le `sys.path` et fixe les deux chemins de base en **absolu** via `setdefault` (un chemin relatif serait résolu contre le répertoire de travail de la fonction, non garanti) ; le tableau de bord Vercel reste prioritaire.
+- `vercel.json` — build Vite + réécritures `/api/*` vers la fonction, le reste vers `index.html` (routage SPA).
+- `requirements.txt` racine — un simple `-r backend/requirements.txt`, lu par le runtime Python de Vercel.
+- `.vercelignore` corrigé : il excluait `backend/data/` **entier**, donc il aurait supprimé le gold du déploiement. Passé en `backend/data/*` + exception sur l'export.
+
+Front et API sur le même domaine → les appels relatifs `fetch('/api/...')` continuent de fonctionner : **aucun CORS, aucune modification de `client.js`** (20 sites d'appel intacts).
+
+**Piège attrapé de justesse.** Après avoir testé `api/index.py` en local, le gold versionné est repassé en **journal WAL** : le fichier est inscriptible sur un poste de dev, donc le pragma s'applique — et une base en WAL est illisible sur le disque en lecture seule du déploiement. Le fichier étant binaire, ça ne se voit pas dans un diff et tout continue de marcher en local. J'allais expédier exactement le bug contre lequel j'avais conçu la lecture seule. Garde-fou ajouté : `test_versioned_gold_export_is_not_in_wal_mode`, qui vise le fichier versionné par son emplacement canonique et non par `settings.analytics_db_path` — sinon la conftest le redirige vers un dossier temporaire et le test se skippe silencieusement.
+
+**Vérifié** : point d'entrée importé comme le fait Vercel → 6 routes à 200, santé 69,9 lue depuis le gold ; simulation des motifs `.vercelignore` (gold inclus, base 39 Mo exclue, sous-paquets ML exclus, lecteurs gold inclus) ; `npm run build` OK ; 87 tests verts.
+
+**Non vérifiable en local** : le chemin exact que la réécriture Vercel transmet à la fonction. Les routers FastAPI sont déjà montés sous `/api`, donc ça fonctionne si Vercel transmet le chemin d'origine — son comportement documenté. Procédure de vérification et solution de repli notées dans `handover/deployment.md` §4b.
+
+### Correctif de suivi — bundle de déploiement (633 Mo → ~190 Mo estimés)
+
+**Demande** : réduire la taille pour passer sous la limite Vercel (500 Mo), piste évoquée = sortir la base bronze du dépôt.
+
+**La piste ne pouvait pas marcher** : `backend/data/` est gitignoré depuis le début, aucune base n'est suivie, et le dépôt entier pèse **150 Ko empaquetés**. Les 633 Mo sont le bundle de la **fonction**, c'est-à-dire les dépendances Python installées — pas le contenu du dépôt.
+
+**Où passaient les 633 Mo** (mesuré en local, 486 Mo de `site-packages`) : scipy 115 · xgboost 98 · pandas 67 · sklearn 44 · numpy 55 · sqlalchemy 19. Or `import app.main` ne charge **que pandas et numpy** — sklearn, xgboost, scipy, hmmlearn, joblib, openpyxl et psycopg2 ne sont importés que par `app/etl/detect.py` et les sous-paquets `app/ml/{environmental,alarm_anomaly,health_score}`, tous hors du chemin de requête. Environ **330 Mo de dépendances pour du code jamais exécuté en production**.
+
+**Correctif** — la séparation existait déjà dans l'architecture, elle n'était juste pas reflétée dans les dépendances :
+- `requirements.txt` réduit à l'API servie (fastapi, uvicorn, pydantic, pydantic-settings, sqlalchemy, pandas, numpy) ;
+- `requirements-etl.txt` (nouveau) : sklearn épinglé, hmmlearn, xgboost, joblib, openpyxl, psycopg2 ;
+- `requirements-dev.txt` (nouveau) : ETL + pytest/httpx ;
+- `.vercelignore` (nouveau) : exclut `app/etl/`, les trois sous-paquets ML, `app/ml/models/` (6,6 Mo d'artefacts), les tests et la doc. **`app/ml/anomalies.py` et `app/ml/health.py` restent** — malgré leur emplacement, ce sont de simples lecteurs du gold appelés par `providers.py`.
+- Instructions d'installation mises à jour (`README.md`, `backend/README.md`, `handover/setup-guide.md`, `handover/deployment.md`) : `requirements-dev.txt` pour développer, `requirements.txt` seul pour déployer.
+
+**Vérifié par simulation** : arborescence déployée reconstituée (code excluant l'ETL/ML → 215 Ko), `import app.main` OK, et les 5 routes répondent 200 — y compris en `DATA_SOURCE=live` sur le vrai gold (santé 69,9 · 388 épisodes · 56 points de prévision). Estimation du bundle : **~148 Mo en local**, soit ~190 Mo en roues Linux.
+
+**Stockage — décision prise : démo Vercel en lecture seule.**
+- `app/etl/export_gold.py` (nouveau) : extrait une base **gold seule** de l'analytique — 39,09 Mo → **1,05 Mo** (2 137 heures scorées, 388 épisodes, 164 points de prévision, 4 sous-scores), figée en journal `DELETE`.
+- `.gitignore` : `backend/data/` devient `backend/data/*` + exception `!backend/data/datapulse_gold.db` — git ne sait pas ré-inclure un fichier dont le dossier parent est exclu.
+- `app/storage/analytics_db.py` : détection d'une base non inscriptible (`is_read_only()`) → ni pragma WAL ni `create_all`. Les deux sont des **écritures** ; une base en WAL ne peut d'ailleurs pas s'ouvrir en lecture sur un disque non inscriptible (il lui faut créer ses `-wal`/`-shm`). Tentative initiale avec l'URI `mode=ro` abandonnée : elle échoue sous Windows (`unable to open database file`), et elle est inutile — le journal `DELETE` posé à l'export suffit.
+- Variables de déploiement documentées (`.env.example`, `handover/deployment.md` §4 bis) : `ANALYTICS_DB_PATH` sur le gold versionné, `APP_DB_PATH=/tmp/datapulse.db`.
+
+**Vérifié en conditions réelles** : arborescence déployée + gold passé en lecture seule (`chmod a-w`) → les **10 routes** répondent 200, santé 69,9 sur données réelles, prévision 56 points avec 1 franchissement, et l'écriture d'une PM renvoie 201 (sur `/tmp`). Test de non-régression ajouté (`test_read_only_analytics_db_is_served_without_writing_to_it`).
+
+**Limite assumée** : l'état applicatif étant sur `/tmp`, planifier une PM ou acquitter une anomalie **réussit mais ne persiste pas**. La consultation, elle, est complète.
 
 ### Correctif de suivi — source par domaine (anomalies en mock pour la démo)
 
@@ -77,6 +211,8 @@ Les deux fichiers que lit le notebook existaient déjà comme **références de 
 Ancrage volontairement sur la **fin de la couverture capteur**, pas sur le dernier épisode : une fenêtre calée sur le dernier épisode contiendrait toujours au moins une anomalie par construction et ne mesurerait plus rien. Conséquence assumée : 24 h et 7 j restent à **0** — les 9 derniers jours d'observation sont réellement sans anomalie — mais le panneau dit maintenant « rien à signaler sur la période » au lieu de paraître cassé.
 
 ### En suspens
+- **Déploiement Vercel : les écritures ne persistent pas** (choix assumé, démo de consultation). Si la remise doit permettre de planifier une PM ou d'acquitter une anomalie durablement, deux voies : Postgres hébergé pour l'état applicatif (Neon/Supabase — les repositories isolent déjà le stockage, cf. `docs/data-architecture.md` §3), ou hébergeur à disque persistant (Railway/Render/Fly) où l'architecture actuelle tourne sans modification.
+- **Le gold versionné est un instantané** : `backend/data/datapulse_gold.db` doit être régénéré (`python -m app.etl.export_gold`) puis recommitté après chaque exécution du pipeline, sinon le déploiement sert des scores périmés.
 - Gain au test mince (+0,04 MAE) face à la persistance, là où le notebook obtient +0,97. À revoir si l'écart environnemental du millésime d'export est résorbé (export brut aligné sur `temp_humid_last.csv`).
 - Notebook cellules 192-222 non portées : pipeline v2, évaluation *walk-forward*, temps d'avance des alertes, score énergie+batterie 2022 pour validation inter-périodes, réglage Optuna. LightGBM (MAE test 5,025, à 0,007 d'XGBoost top 20) écarté pour ne pas ajouter une seconde dépendance de gradient boosting.
 - `weight_version` v1.0 figée : le notebook a des curseurs de poids (ipywidgets) non exposés dans l'application ; `recalculate_health_scores` n'a pas été porté (pas de surface UI pour le piloter).
