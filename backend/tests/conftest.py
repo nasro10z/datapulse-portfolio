@@ -10,6 +10,11 @@ from pathlib import Path
 
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="datapulse-tests-"))
 os.environ["APP_DB_PATH"] = str(_TMP_DIR / "app.db")
+# ⚠️ Et surtout : neutraliser `APP_DB_URL`, qui **prime** sur `APP_DB_PATH`. Un poste
+# de dev pointant sur le PostgreSQL managé de la démo verrait sinon toute la suite
+# écrire dans cette base partagée — la fixture `reset_user_actions` ci-dessous y
+# supprimerait les acquittements après chaque test.
+os.environ["APP_DB_URL"] = ""
 # Base analytique jetable : les tests ne touchent pas la vraie base gold peuplée
 # (source « live » = lecture gold ; ici gold vide → réponses vides mais 200).
 os.environ["ANALYTICS_DB_PATH"] = str(_TMP_DIR / "analytics.db")

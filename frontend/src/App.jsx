@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { LangProvider } from './i18n'
+import { ConfigProvider } from './config'
 import AppLayout from './layout/AppLayout'
 import Overview from './pages/Overview'
 import SiteHealth from './pages/SiteHealth'
@@ -10,6 +11,7 @@ import Maintenance from './pages/Maintenance'
 export default function App() {
   return (
     <LangProvider>
+      <ConfigProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<AppLayout />}>
@@ -21,6 +23,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </ConfigProvider>
     </LangProvider>
   )
 }

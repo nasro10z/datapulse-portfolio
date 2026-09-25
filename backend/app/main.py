@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import anomalies, health, maintenance, reminders
+from app.api import anomalies, health, maintenance, meta, reminders
 from app.config import settings
 from app.db.app_db import get_sessionmaker, init_db
 from app.mocks.maintenance import seed_demo_calendar
@@ -46,6 +46,7 @@ async def not_implemented_handler(request: Request, exc: NotImplementedError) ->
     # DATA_SOURCE=live avant branchement du pipeline → 501 explicite plutôt qu'un 500 opaque
     return JSONResponse(status_code=501, content={"detail": str(exc)})
 
+app.include_router(meta.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 app.include_router(anomalies.router, prefix="/api")
 app.include_router(maintenance.router, prefix="/api")

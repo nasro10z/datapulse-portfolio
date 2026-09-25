@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import useApi, { ApiState } from '../hooks/useApi'
 import { useLang } from '../i18n'
+import { useConfig } from '../config'
 import Panel from '../components/Panel'
 import PMCalendar from '../components/PMCalendar'
 import KpiCard from '../components/KpiCard'
@@ -41,6 +42,11 @@ export default function Maintenance() {
   const formRef = useRef(null)
   const calendar = useApi(api.maintenanceCalendar)
   const equipmentOptions = useApi(api.maintenanceEquipmentOptions)
+  // Instance publique : les plannings sont figés côté API (403 sur les écritures).
+  // On le lit ici pour présenter un formulaire désactivé plutôt qu'un échec à la
+  // soumission. Valeur par défaut permissive : une page rendue hors provider
+  // (test, story) garde le formulaire actif.
+  const { pm_read_only: readOnly } = useConfig()
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -143,9 +149,22 @@ export default function Maintenance() {
       <div ref={formRef}>
         <Panel
           title={editingId ? t('maintenance.formEdit', { id: editingId }) : t('maintenance.formCreate')}
-          subtitle={t('maintenance.formSub')}
+          subtitle={readOnly ? t('maintenance.readOnlySub') : t('maintenance.formSub')}
         >
-          <form onSubmit={submit} className="flex flex-col gap-3">
+          {readOnly && (
+            <div style={{
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              background: 'var(--surface-inset)', color: 'var(--text-muted)',
+              fontSize: 12, padding: '8px 10px', marginBottom: 12,
+            }}>
+              {t('maintenance.readOnly')}
+            </div>
+          )}
+          {/* fieldset : désactive tous les champs d'un coup, bouton de soumission
+              compris, sans dupliquer `disabled` sur chacun. */}
+          <form onSubmit={submit}>
+            <fieldset disabled={readOnly} className="flex flex-col gap-3"
+                      style={{ border: 'none', margin: 0, padding: 0 }}>
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex flex-col gap-1" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 {t('maintenance.equipment')}
@@ -176,7 +195,7 @@ export default function Maintenance() {
               </label>
               <label className="flex flex-col gap-1" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 {t('maintenance.assignedTo')}
-                <input value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })} placeholder="A. B." style={{ ...inputStyle, width: 160 }} />
+                <input value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })} placeholder={t('maintenance.assignedToHint')} style={{ ...inputStyle, width: 160 }} />
               </label>
             </div>
             <label className="flex flex-col gap-1" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -216,6 +235,7 @@ export default function Maintenance() {
                 </>
               )}
             </div>
+            </fieldset>
           </form>
           {submitError && (
             <p style={{ fontSize: 12, color: 'var(--status-critical)', marginTop: 10 }}>
@@ -257,8 +277,8 @@ export default function Maintenance() {
                   <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>{pm.notes}</p>
                 )}
                 <div className="flex gap-1.5 mt-2">
-                  <button onClick={() => startEdit(pm)} style={rowBtn()}>{t('maintenance.modifyAction')}</button>
-                  <button onClick={() => remove(pm.id)} disabled={busyId === pm.id} style={rowBtn(true)}>{t('maintenance.delete')}</button>
+                  <button onClick={() => startEdit(pm)} disabled={readOnly} style={rowBtn()}>{t('maintenance.modifyAction')}</button>
+                  <button onClick={() => remove(pm.id)} disabled={readOnly || busyId === pm.id} style={rowBtn(true)}>{t('maintenance.delete')}</button>
                 </div>
               </div>
             ))}

@@ -15,6 +15,9 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // Configuration de l'instance (source des données, plannings figés ou non)
+  config: () => request('/api/config'),
+
   // Health
   healthOverview: () => request('/api/health/overview'),
   healthForecast: (horizon = '24h') => request(`/api/health/forecast?horizon=${horizon}`),
