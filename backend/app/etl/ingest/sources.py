@@ -16,6 +16,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from app.config import settings
+
 # LEURS fonctions (source de vérité) — dédup + catégorisation identiques à l'entraînement
 from app.ml.alarm_anomaly.data_loading import clean_and_dedupe
 
@@ -60,14 +62,14 @@ def load_ups_events(path: Path | None = None) -> pd.DataFrame:
     Pièges : 1re ligne parasite à sauter ; latin-1 ; `ts` reconstruit depuis
     `Date`+`Time`. Le mapping état/message **miroite** `alarm_anomaly.data_loading
     .merge_ups_source` (état `D` si « restored » sinon `A` ; message
-    `\\MSC-10\\ UPS <description en majuscules>`).
+    `<RAW_UPS_MESSAGE_PREFIX><description en majuscules>`, cf. `config.Settings`).
     """
     df = pd.read_csv(path or DATA_RAW / "ups_socomec1_msc10_events.csv",
                      skiprows=1, encoding="latin-1")
     desc = df["Description"].fillna("").astype(str)
     out = pd.DataFrame({
         "state": np.where(desc.str.contains("restored", case=False, na=False), "D", "A"),
-        "message": (r"\MSC-10\ UPS "
+        "message": (settings.raw_ups_message_prefix
                     + desc.str.replace(" has been restored", "", case=False, regex=False).str.upper()),
     })
     out["log_time"] = pd.to_datetime(df["Date"] + " " + df["Time"], dayfirst=True, errors="coerce")

@@ -97,8 +97,8 @@ l'ingestion (C) doit les normaliser avant de remplir le bronze.
 
 `logs_msc10.xlsx` (2026) + le sous-ensemble MSC 10 de `alarmes_scada_2022.xlsx`
 (2022) forment ensemble l'**historique d'alarmes SCADA de MSC-10**. Les autres sites
-présents dans le fichier 2022 (SITE-A, BSC-07, SITE-B, SITE-C, SITE-D,
-SITE-E) sont **hors périmètre** et écartés à l'ingestion.
+présents dans le fichier 2022 (six autres sites du même réseau) sont **hors
+périmètre** et écartés à l'ingestion.
 
 ---
 

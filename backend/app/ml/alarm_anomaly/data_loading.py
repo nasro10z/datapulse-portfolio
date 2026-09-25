@@ -46,6 +46,10 @@ def merge_ups_source(df_combined: pd.DataFrame, ups_csv_path) -> pd.DataFrame:
     df_ups_new["state"] = np.where(
         description.str.contains("restored", case=False, na=False), "D", "A"
     )
+    # Préfixe neutralisé : le nom réel du site vit avec les données brutes
+    # (hors dépôt). Notre ingestion utilise `config.Settings.raw_ups_message_prefix`,
+    # surchargeable par RAW_UPS_MESSAGE_PREFIX ; cette fonction livrée n'est pas
+    # appelée par le pipeline DataPulse (cf. etl/ingest/sources.load_ups_events).
     df_ups_new["message"] = (
         r"\MSC-10\ UPS "
         + description.str.replace(" has been restored", "", case=False, regex=False).str.upper()

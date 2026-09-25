@@ -7,8 +7,16 @@ __pycache__/
 # Env / credentials — never commit
 .env
 
-# État applicatif local (SQLite) — recréé au démarrage
-backend/data/
+# Bases SQLite locales — recréées au démarrage / par l'ETL.
+# `backend/data/*` (et non `backend/data/`) : git ne peut pas ré-inclure un fichier
+# dont le dossier parent est exclu, or on veut versionner l'export gold ci-dessous.
+backend/data/*
+
+# Exception : le gold exporté (~1 Mo) est **versionné** — c'est l'unique donnée
+# embarquée dans un déploiement en lecture seule (l'API ne lit rien d'autre).
+# Régénéré par `python -m app.etl.export_gold --shift-to-now` après chaque
+# exécution du pipeline, puis recommitté.
+!backend/data/datapulse_gold.db
 
 # Données sources brutes (fournies manuellement, volumineuses) — ne pas committer.
 # À déposer dans backend/app/ml/data/raw/ (voir docs/ml-data-integration.md).
@@ -26,8 +34,5 @@ Thumbs.db
 # Config machine-locale (launch.json contient des chemins absolus)
 .claude/
 
-CLAUDE.md
-ROADMAP.md
-SESSIONS.md
-
-docs
+# Table de correspondance d'anonymisation — la publier annulerait l'anonymisation
+.anonymization-map.local.md
