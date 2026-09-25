@@ -15,6 +15,8 @@ Tables :
                             Santé du site et de l'entraînement de la prévision ;
   - `health_score`        : instantané servi à l'API (global + sous-scores) ;
   - `forecast_point`      : trajectoire prévue par horizon.
+  - `gold_meta`           : métadonnées de l'instantané (bornes d'observation,
+                            recalage temporel appliqué à l'export).
 
 ⚠️ Les anomalies d'alarmes SCADA (`alarm_anomaly`, catégorie UPS/CLIM/ENERGY)
 sont une **capacité nouvelle** de forme différente (pas de `peak_value`/`direction`
@@ -156,3 +158,26 @@ class ForecastPointRow(Base):
     lower: Mapped[float] = mapped_column(Float)
     upper: Mapped[float] = mapped_column(Float)
     is_forecast: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class GoldMetaRow(Base):
+    """Métadonnées de l'instantané gold — une seule ligne (`id=1`).
+
+    Porte ce dont l'API a besoin et qui vivait jusqu'ici uniquement dans le
+    **silver** : la fin de la couverture capteur et l'étendue d'observation, qui
+    bornent les fenêtres glissantes (cf. `ml/anomalies.reference_now`). L'export
+    de déploiement ne contient que le gold (`etl/export_gold`) — sans ces valeurs,
+    la source live des anomalies interrogerait une table absente.
+
+    `shift_days` enregistre le recalage temporel éventuellement appliqué à
+    l'export : une démo servie sur des données historiques doit pouvoir dire de
+    combien elles ont été décalées.
+    """
+
+    __tablename__ = "gold_meta"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    silver_last_ts: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    silver_span_days: Mapped[int] = mapped_column(Integer, default=1)
+    shift_days: Mapped[float] = mapped_column(Float, default=0.0)
+    exported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

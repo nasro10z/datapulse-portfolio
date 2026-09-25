@@ -8,11 +8,13 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from sqlalchemy import delete, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.models.anomalies import AnomalyEpisode
 from app.storage.schema.gold import (
     AnomalyEpisodeRow,
+    GoldMetaRow,
     ForecastPointRow,
     HealthScoreHourlyRow,
     HealthScoreRow,
@@ -133,3 +135,32 @@ def read_forecast_points(session: Session, horizon: str) -> list[ForecastPointRo
         .where(ForecastPointRow.horizon == horizon)
         .order_by(ForecastPointRow.timestamp)
     ).all())
+
+
+# ---- Métadonnées de l'instantané -----------------------------------------
+
+def write_meta(session: Session, *, silver_last_ts: datetime | None,
+               silver_span_days: int, shift_days: float = 0.0) -> None:
+    """Écrit (en remplaçant) la ligne unique de `gold_meta`."""
+    session.execute(delete(GoldMetaRow))
+    session.add(GoldMetaRow(
+        id=1,
+        silver_last_ts=_naive(silver_last_ts) if silver_last_ts else None,
+        silver_span_days=silver_span_days,
+        shift_days=shift_days,
+        exported_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    ))
+    session.commit()
+
+
+def read_meta(session: Session) -> GoldMetaRow | None:
+    """Méta de l'instantané, ou `None` si absent.
+
+    `None` couvre deux cas légitimes : une base analytique locale complète (où le
+    silver reste interrogeable, cf. `ml/anomalies`) et un export antérieur à
+    l'introduction de la table — d'où le rattrapage de `OperationalError`.
+    """
+    try:
+        return session.scalar(select(GoldMetaRow).limit(1))
+    except OperationalError:
+        return None

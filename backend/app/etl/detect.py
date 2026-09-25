@@ -52,7 +52,7 @@ from app.storage.repositories import gold_repo, silver_repo
 ROOM = "SALLE_SWITCH"
 
 
-def _status_for(start: datetime, now: datetime) -> AnomalyStatus:
+def status_for(start: datetime, now: datetime) -> AnomalyStatus:
     """Statut par ancienneté, mesurée contre la **fin de la période observée**.
 
     Mesurée contre l'horloge, tout épisode d'un export historique figé serait
@@ -137,7 +137,7 @@ def run_hmm_episodes(silver: pd.DataFrame) -> list[AnomalyEpisode]:
             id=f"EP-{i:04d}", equipment=ROOM, type=AnomalyType.collective,
             severity=c["severity"], direction=c["direction"], start=c["start"],
             duration_min=c["duration_min"], peak_value=c["peak"],
-            status=_status_for(c["start"], now), dimension=AnomalyDimension.environment,
+            status=status_for(c["start"], now), dimension=AnomalyDimension.environment,
         )
         for i, c in enumerate(cands, 1)
     ]

@@ -22,8 +22,17 @@ def raw_episodes() -> list[AnomalyEpisode]:
 
 
 def window_days() -> int:
-    """Fenêtre d'observation réelle (jours) = étendue du silver, pour le taux d'anomalies."""
+    """Fenêtre d'observation réelle (jours), pour le taux d'anomalies.
+
+    Lue dans `gold_meta` quand il existe — c'est le cas d'un **export de
+    déploiement**, qui ne contient que le gold et où le silver n'est donc pas
+    interrogeable. Repli sur le silver lui-même en local, où la base analytique
+    complète est disponible.
+    """
     with get_analytics_sessionmaker()() as session:
+        meta = gold_repo.read_meta(session)
+        if meta is not None:
+            return meta.silver_span_days
         return silver_repo.span_days(session)
 
 
@@ -36,10 +45,12 @@ def reference_now() -> datetime:
     pourrait afficher que zéro — un « rien à signaler » impossible à distinguer
     d'un pipeline en panne. On borne donc sur la donnée elle-même.
 
-    Volontairement la fin de la **couverture capteur**, pas la date du dernier
+    La borne vit dans `gold_meta` (écrit par l'export) et, à défaut, se relit
+    dans le silver. Volontairement la fin de la **couverture capteur**, pas la date du dernier
     épisode : une fenêtre calée sur le dernier épisode contiendrait toujours au
     moins une anomalie par construction, ce qui ne mesurerait plus rien.
     """
     with get_analytics_sessionmaker()() as session:
-        last = silver_repo.last_ts(session)
+        meta = gold_repo.read_meta(session)
+        last = meta.silver_last_ts if meta is not None else silver_repo.last_ts(session)
     return last or datetime.now(timezone.utc)

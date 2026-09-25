@@ -58,6 +58,11 @@ class HealthOverview(BaseModel):
     sub_scores: list[SubScore]
     domain_scores: list[DomainScore]
     updated_at: datetime
+    # Décalage appliqué aux données servies, en jours. Non nul = démo sur un export
+    # historique recalé dans le temps (cf. `etl/export_gold --shift-to-now`) : à
+    # afficher, sinon des dates « d'aujourd'hui » laisseraient croire à un flux
+    # temps réel. `None` = source mockée, la question ne se pose pas.
+    data_shift_days: float | None = None
 
 
 class HistoryRange(str, Enum):

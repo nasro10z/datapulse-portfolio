@@ -140,7 +140,20 @@ def get_overview() -> HealthOverview:
         sub_scores=sub_scores,
         domain_scores=domain_scores,
         updated_at=latest_ts.to_pydatetime(),
+        data_shift_days=_data_shift_days(),
     )
+
+
+def _data_shift_days() -> float | None:
+    """Décalage temporel appliqué à l'export servi, en jours (0 si aucun).
+
+    Sert l'honnêteté de la démo : les données sont un export historique figé,
+    recalé pour que la dernière heure scorée tombe « maintenant ». L'interface
+    doit pouvoir le dire plutôt que de laisser croire à un flux temps réel.
+    """
+    with get_analytics_sessionmaker()() as session:
+        meta = gold_repo.read_meta(session)
+    return meta.shift_days if meta is not None else None
 
 
 # --------------------------------------------------------------- historique
