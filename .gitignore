@@ -36,3 +36,5 @@ Thumbs.db
 
 # Table de correspondance d'anonymisation — la publier annulerait l'anonymisation
 .anonymization-map.local.md
+.ROADMAP.md
+.SESSION.md

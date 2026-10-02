@@ -1,7 +1,7 @@
 {
   "score_version": "health_score_v1.0",
   "weight_version": "v1.0",
-  "trained_at": "2026-07-30T07:36:24.407484+00:00",
+  "trained_at": "2026-09-26T18:31:19.355633+00:00",
   "selected_model": "xgboost_top_20",
   "target": "target_health_change_6h (delta)",
   "horizon_hours": 6,

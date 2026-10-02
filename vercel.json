@@ -1,0 +1,40 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "fastapi": {
+      "root": "backend/",
+      "framework": "fastapi",
+      "entrypoint": "app.main:app"
+    },
+    "vite": {
+      "root": "frontend/",
+      "framework": "vite",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api",
+      "destination": {
+        "service": "fastapi"
+      }
+    },
+    {
+      "source": "/api/:path*",
+      "destination": {
+        "service": "fastapi"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "vite"
+      }
+    }
+  ]
+}
