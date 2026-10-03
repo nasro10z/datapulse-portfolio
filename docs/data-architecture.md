@@ -31,12 +31,12 @@ des accès croisés :
        └──────────────────────────────────────┘        └────────────────┘
 ```
 
-| Brique | Responsabilité | Ne fait **pas** |
-|---|---|---|
-| **`storage/`** | persistance pure : tables + repositories (DAO) | aucune logique métier, aucun pandas, aucun modèle |
-| **`etl/`** | orchestration + I/O : lit bronze, appelle `ml/`, écrit silver/gold | ne connaît pas les maths ; ne dépend pas de l'API |
-| **`ml/`** | les maths **validées** (préprocessing, hystérésis, forecast) sur DataFrames | aucune I/O, aucun accès DB |
-| **`api/`** | expose le REST ; lit **uniquement** le gold via un repository | ne fait **jamais** tourner le pipeline |
+| Brique         | Responsabilité                                                              | Ne fait **pas**                                   |
+| -------------- | --------------------------------------------------------------------------- | ------------------------------------------------- |
+| **`storage/`** | persistance pure : tables + repositories (DAO)                              | aucune logique métier, aucun pandas, aucun modèle |
+| **`etl/`**     | orchestration + I/O : lit bronze, appelle `ml/`, écrit silver/gold          | ne connaît pas les maths ; ne dépend pas de l'API |
+| **`ml/`**      | les maths **validées** (préprocessing, hystérésis, forecast) sur DataFrames | aucune I/O, aucun accès DB                        |
+| **`api/`**     | expose le REST ; lit **uniquement** le gold via un repository               | ne fait **jamais** tourner le pipeline            |
 
 **Garantie de maintenabilité** : changer la techno de stockage n'impacte que
 `storage/` ; changer la logique ML n'impacte que `ml/` ; l'API ignore les deux.
@@ -45,26 +45,26 @@ des accès croisés :
 
 ## 2. Les trois couches (medallion)
 
-Vocabulaire *medallion* (raffinage progressif du brut vers le prêt-à-servir).
+Vocabulaire _medallion_ (raffinage progressif du brut vers le prêt-à-servir).
 
-| Couche | En clair | Contenu | Écrite par | Recalculable ? |
-|---|---|---|---|---|
-| **bronze** | le brut | copie append-only de la source + ingestion temps réel, telle quelle (doublons/trous inclus) | `etl/ingest` | non — c'est la vérité |
-| **silver** | le nettoyé | sortie du préprocessing validé : dédup, gaps >125s classés, segments, rolling stats | `etl/transform` | oui (depuis bronze) |
-| **gold** | le prêt-à-servir | résultat métier = ce que l'API renvoie : épisodes, scores, forecast, labels de validation | `etl/detect,score,forecast` | oui (depuis silver) |
+| Couche     | En clair         | Contenu                                                                                     | Écrite par                  | Recalculable ?        |
+| ---------- | ---------------- | ------------------------------------------------------------------------------------------- | --------------------------- | --------------------- |
+| **bronze** | le brut          | copie append-only de la source + ingestion temps réel, telle quelle (doublons/trous inclus) | `etl/ingest`                | non — c'est la vérité |
+| **silver** | le nettoyé       | sortie du préprocessing validé : dédup, gaps >125s classés, segments, rolling stats         | `etl/transform`             | oui (depuis bronze)   |
+| **gold**   | le prêt-à-servir | résultat métier = ce que l'API renvoie : épisodes, scores, forecast, labels de validation   | `etl/detect,score,forecast` | oui (depuis silver)   |
 
 ### Tables par couche, et d'où elles viennent
 
-| Couche | Table | Origine |
-|---|---|---|
-| bronze | `raw_temp_humidity` | `temp_humid_msc10.csv` (137 970 lignes) |
-| bronze | `raw_scada_log` | `logs_msc10.xlsx` + `ups_socomec1_msc10_events.csv` (3 274) |
-| silver | `th_clean` | dédup + segmentation (107 047) — reproduit `temp_humid_last.csv` |
-| silver | `scada_clean` | `clean_and_dedupe` (2 569) — reproduit `msc10_combined_ups.csv` **à la ligne près** |
-| gold | `anomaly_episode` | HMM environnemental (388 épisodes, par salle) |
-| gold | `health_score_hourly` | scoring `health_scores.ipynb` (2 137 heures) — équivalent de `site_health_scores.csv` |
-| gold | `health_score` | instantané servi : score global + 3 domaines |
-| gold | `forecast_point` | trajectoires 24 h / 7 j / 30 j (164 points) |
+| Couche | Table                 | Origine                                                                               |
+| ------ | --------------------- | ------------------------------------------------------------------------------------- |
+| bronze | `raw_temp_humidity`   | `temp_humid_msc10.csv` (137 970 lignes)                                               |
+| bronze | `raw_scada_log`       | `logs_msc10.xlsx` + `ups_socomec1_msc10_events.csv` (3 274)                           |
+| silver | `th_clean`            | dédup + segmentation (107 047) — reproduit `temp_humid_last.csv`                      |
+| silver | `scada_clean`         | `clean_and_dedupe` (2 569) — reproduit `msc10_combined_ups.csv` **à la ligne près**   |
+| gold   | `anomaly_episode`     | HMM environnemental (388 épisodes, par salle)                                         |
+| gold   | `health_score_hourly` | scoring `health_scores.ipynb` (2 137 heures) — équivalent de `site_health_scores.csv` |
+| gold   | `health_score`        | instantané servi : score global + 3 domaines                                          |
+| gold   | `forecast_point`      | trajectoires 24 h / 7 j / 30 j (164 points)                                           |
 
 > **Les deux CSV du notebook de scoring descendent bien la chaîne** :
 > `temp_humid_last.csv` → bronze → `th_clean` → scoring ; `msc10_combined_ups.csv`
@@ -74,11 +74,11 @@ Vocabulaire *medallion* (raffinage progressif du brut vers le prêt-à-servir).
 
 Exemple d'un même point qui descend les couches :
 
-| Couche | Donnée |
-|---|---|
-| bronze | `2026-07-01 10:00:00 · SALLE_SWITCH · 28.9°C · hum=NaN` (brut) |
-| silver | même point dédupliqué · `segment_id=1450` · `rolling_mean_36=27.2` |
-| gold | `EP-0031 · STULZ-03 · critical · start 10:00 · durée 42min · pic 30.8°C` |
+| Couche | Donnée                                                                   |
+| ------ | ------------------------------------------------------------------------ |
+| bronze | `2026-07-01 10:00:00 · SALLE_SWITCH · 28.9°C · hum=NaN` (brut)           |
+| silver | même point dédupliqué · `segment_id=1450` · `rolling_mean_36=27.2`       |
+| gold   | `EP-0031 · STULZ-03 · critical · start 10:00 · durée 42min · pic 30.8°C` |
 
 **Point clé** : le schéma **gold = les modèles Pydantic déjà écrits**
 (`AnomalyEpisode`, `HealthOverview`, `ForecastResponse`). L'API fait un `SELECT`
@@ -92,12 +92,12 @@ SQLite est adapté à l'échelle du projet (≈107k lignes historiques, ~720 poi
 en temps réel, **un seul écrivain par fichier**). La séparation des fichiers est
 ce qui empêche le mélange data ↔ ETL ↔ app.
 
-| Fichier | Contenu | Écrit par | Lu par | Statut |
-|---|---|---|---|---|
-| **exports CSV** des tables (temp_humidity, scada_logs, ups_events) | données data center | fournis (PG `datacenter_ops` non joignable) | `etl/ingest` | fournis |
-| `datapulse_analytics.db` | bronze + silver + gold | **l'ETL uniquement** | l'API locale (gold), l'ETL (bronze/silver) | local |
-| PostgreSQL (`ANALYTICS_DB_URL`) | tables gold exportées | import du snapshot | API déployée (lecture) | optionnel |
-| `datapulse.db` ou PostgreSQL (`APP_DB_URL`) | état app (PM, actions user) | **l'API uniquement** | l'API | existe |
+| Fichier                                                            | Contenu                     | Écrit par                                   | Lu par                                     | Statut    |
+| ------------------------------------------------------------------ | --------------------------- | ------------------------------------------- | ------------------------------------------ | --------- |
+| **exports CSV** des tables (temp_humidity, scada_logs, ups_events) | données data center         | fournis (PG `datacenter_ops` non joignable) | `etl/ingest`                               | fournis   |
+| `datapulse_analytics.db`                                           | bronze + silver + gold      | **l'ETL uniquement**                        | l'API locale (gold), l'ETL (bronze/silver) | local     |
+| PostgreSQL (`ANALYTICS_DB_URL`)                                    | tables gold exportées       | import du snapshot                          | API déployée (lecture)                     | optionnel |
+| `datapulse.db` ou PostgreSQL (`APP_DB_URL`)                        | état app (PM, actions user) | **l'API uniquement**                        | l'API                                      | existe    |
 
 > Migration future sans douleur : si le temps réel monte en charge, on remplace
 > `datapulse_analytics.db` par une base PostgreSQL **sans toucher** à `etl/` ni à
@@ -130,16 +130,20 @@ Pas deux mondes parallèles : **un** code de transformation, deux façons de le
 déclencher (approche Kappa).
 
 ### Historique (backfill) — one-shot
+
 ```
 lit source (fenêtre complète) → bronze → transform → detect/score/forecast → gold
 ```
+
 Lancé une fois pour charger l'existant.
 
 ### Temps réel (incrémental) — sur intervalle
+
 ```
 lit source WHERE ts > watermark → append bronze
   → recalcule les SEGMENTS TOUCHÉS (pas tout) → met à jour gold
 ```
+
 - **Watermark** par table source, persisté dans `storage` (dernier `ts` ingéré).
 - **Idempotence** : upsert par clé naturelle `(ts, sensor)` en bronze → réexécuter
   un cycle ne duplique rien.
@@ -234,12 +238,12 @@ son API).
 
 **Ce qu'il apporte :**
 
-| Élément livré | Où il atterrit chez nous | Note |
-|---|---|---|
-| `src/environmental/` (HMM temp/humidité) + `src/alarm_anomaly/` (IsolationForest alarmes SCADA) | notre `ml/` (fonctions pures, réutilisées telles quelles) | ne pas réécrire |
-| `models/*/*.joblib` + `metadata.json` + `thresholds.json` | artefacts chargés au démarrage | env : F1=0.83 ; alarm : 720 events |
-| `preprocessing.py` (segments 125 s, rolling 12/36/78, Tukey, hystérésis) | `ml/` | = pipeline CLAUDE.md confirmé |
-| `datapulse.db` (`temp_humid_last`, 107 060 lignes) + CSV | seed du **bronze** temp/humidité | données historiques présentes |
+| Élément livré                                                                                   | Où il atterrit chez nous                                  | Note                               |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- |
+| `src/environmental/` (HMM temp/humidité) + `src/alarm_anomaly/` (IsolationForest alarmes SCADA) | notre `ml/` (fonctions pures, réutilisées telles quelles) | ne pas réécrire                    |
+| `models/*/*.joblib` + `metadata.json` + `thresholds.json`                                       | artefacts chargés au démarrage                            | env : F1=0.83 ; alarm : 720 events |
+| `preprocessing.py` (segments 125 s, rolling 12/36/78, Tukey, hystérésis)                        | `ml/`                                                     | = pipeline CLAUDE.md confirmé      |
+| `datapulse.db` (`temp_humid_last`, 107 060 lignes) + CSV                                        | seed du **bronze** temp/humidité                          | données historiques présentes      |
 
 **Modèles = prédicteurs point-par-point, pas producteurs d'épisodes.**
 `EnvironmentalPredictor.predict_one({ts,temp,hum})` et
@@ -249,9 +253,10 @@ est le rôle de `etl/detect.py` (déroulé sur l'historique + regroupement). Le
 buffer en RAM de `EnvironmentalPredictor` est remplacé par la lecture du bronze.
 
 **Décisions arrêtées & réconciliation :**
+
 - **Granularité : par salle** (décidé). Les épisodes `environmental` sont attribués
   à la salle (capteur SALLE_SWITCH), pas aux STULZ-01..10. `alarm_anomaly` reste au
-  niveau *événement SCADA* avec catégorie (UPS/CLIM/ENERGY) — **nouvelle capacité**,
+  niveau _événement SCADA_ avec catégorie (UPS/CLIM/ENERGY) — **nouvelle capacité**,
   absente des mocks actuels.
 - **Seuils : 26.75 / 28.65** (décidé — valeurs livrées `thresholds.json`, split
   train). Constante `mocks/equipment.py` + docs déjà alignées.
@@ -287,7 +292,7 @@ livrées → égalité exacte (< 1e-6). C'est ce test qui autorise à faire évo
 `ml/health_score` sans reperdre la validation faite par l'équipe data science.
 
 **Prévision** (`ml/health_score/forecasting.py`) : **XGBoost sur le delta**. La
-cible apprise est la *variation* de santé à +6 h, pas le niveau — la santé globale
+cible apprise est la _variation_ de santé à +6 h, pas le niveau — la santé globale
 se comportant comme un AR(1), prédire le niveau revient à demander à des arbres
 d'extrapoler une tendance, et aucun modèle du notebook n'y battait la persistance.
 Sur le delta, la persistance devient « delta = 0 » et le modèle n'apprend que
@@ -311,19 +316,20 @@ python -m app.etl.run --skip-ingest  # repart du bronze déjà chargé
 Chaque étape remplace intégralement sa cible : rejouer le pipeline ne duplique
 rien et ne laisse pas d'état à nettoyer.
 
-| Étape | Livrable | Dépend de | Statut |
-|---|---|---|---|
-| A | `storage/` : `analytics_db.py` + schémas bronze/silver/gold + repositories | — | **fait** |
-| B | `ml/` : package `mlops-api` intégré en librairie (fonctions + artefacts) | package livré | **fait** |
-| C | `etl/ingest` : bronze depuis les CSV/XLSX bruts (temp/hum + SCADA) | données fournies | **fait** |
-| D | `etl/transform` (bronze→silver) : `th_clean` + `scada_clean` | A, B, C | **fait** |
-| E | `etl/detect` : HMM déroulé → `AnomalyEpisode` (par salle) → gold | B, D | **fait** (388 épisodes) |
-| F | `etl/score,forecast` : `gold.health_score_hourly` + `health_score` + `forecast_point` | D, E | **fait** (2 137 h, 164 points) |
-| G | `providers` live → `gold_repo` ; plus aucun `NotImplementedError` | A, E, F | **fait** (5 routes santé + anomalies) |
-| H | `etl/incremental` + watermark + job périodique (temps réel) | D–F | différé — pas de flux source |
-| I | Rebranchement Santé du site sur l'API | G | **fait** (vérifié en navigateur) |
+| Étape | Livrable                                                                              | Dépend de        | Statut                                |
+| ----- | ------------------------------------------------------------------------------------- | ---------------- | ------------------------------------- |
+| A     | `storage/` : `analytics_db.py` + schémas bronze/silver/gold + repositories            | —                | **fait**                              |
+| B     | `ml/` : package `mlops-api` intégré en librairie (fonctions + artefacts)              | package livré    | **fait**                              |
+| C     | `etl/ingest` : bronze depuis les CSV/XLSX bruts (temp/hum + SCADA)                    | données fournies | **fait**                              |
+| D     | `etl/transform` (bronze→silver) : `th_clean` + `scada_clean`                          | A, B, C          | **fait**                              |
+| E     | `etl/detect` : HMM déroulé → `AnomalyEpisode` (par salle) → gold                      | B, D             | **fait** (388 épisodes)               |
+| F     | `etl/score,forecast` : `gold.health_score_hourly` + `health_score` + `forecast_point` | D, E             | **fait** (2 137 h, 164 points)        |
+| G     | `providers` live → `gold_repo` ; plus aucun `NotImplementedError`                     | A, E, F          | **fait** (5 routes santé + anomalies) |
+| H     | `etl/incremental` + watermark + job périodique (temps réel)                           | D–F              | différé — pas de flux source          |
+| I     | Rebranchement Santé du site sur l'API                                                 | G                | **fait** (vérifié en navigateur)      |
 
 **Bloquant restant** (le pipeline **et** les données sont fournis) :
+
 - **Flux temps réel** : pas de source live (PG non joignable) → l'incrémental (H)
   attend qu'un flux ou des exports CSV réguliers soient mis en place. L'historique
   (backfill sur CSV) fonctionne dès maintenant.

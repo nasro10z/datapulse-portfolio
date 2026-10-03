@@ -6,10 +6,10 @@ MSC-10). Le vrai pipeline sera branché en Phase 8 sans changer les contrats.
 
 ## Deux bases, deux rôles
 
-| Base | Rôle | Module |
-|---|---|---|
-| PostgreSQL `datacenter_ops` | source de données du data center, **lecture** | `app/db/engine.py` (non branché) |
-| SQLite `data/datapulse.db` | état saisi dans l'outil (plannings de PM), **écriture** | `app/db/app_db.py` |
+| Base                        | Rôle                                                    | Module                           |
+| --------------------------- | ------------------------------------------------------- | -------------------------------- |
+| PostgreSQL `datacenter_ops` | source de données du data center, **lecture**           | `app/db/engine.py` (non branché) |
+| SQLite `data/datapulse.db`  | état saisi dans l'outil (plannings de PM), **écriture** | `app/db/app_db.py`               |
 
 Les plannings de PM ne sont pas des données mockées : ils sont saisis par
 l'utilisateur et persistés en SQLite (`app/services/maintenance.py`). Le fichier

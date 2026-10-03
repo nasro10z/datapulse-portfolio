@@ -4,11 +4,11 @@
 
 ## Prérequis
 
-| Outil | Version | Remarque |
-|---|---|---|
-| Python | 3.13 | environnement ETL/modèles (`requirements-etl.txt`, `scikit-learn==1.9.0`) |
+| Outil   | Version           | Remarque                                                                   |
+| ------- | ----------------- | -------------------------------------------------------------------------- |
+| Python  | 3.13              | environnement ETL/modèles (`requirements-etl.txt`, `scikit-learn==1.9.0`)  |
 | Node.js | 22 LTS recommandé | Vite 6 émet un warning EBADENGINE sous Node < 21.7 (fonctionne quand même) |
-| Git | — | |
+| Git     | —                 |                                                                            |
 
 Pas de PostgreSQL local requis : `datacenter_ops` est **non joignable** en dev, les données arrivent en exports CSV (voir `docs/data-architecture.md`).
 
@@ -22,11 +22,13 @@ python -m venv .venv
 ```
 
 Windows (PowerShell) :
+
 ```powershell
 .venv\Scripts\pip install -r requirements-dev.txt
 ```
 
 macOS/Linux :
+
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
 ```
@@ -72,6 +74,7 @@ Pour passer en données réelles (`DATA_SOURCE=live`), voir [`deployment.md`](de
 ```powershell
 .venv\Scripts\uvicorn app.main:app --reload
 ```
+
 ```bash
 .venv/bin/uvicorn app.main:app --reload
 ```
@@ -144,7 +147,7 @@ Puis ouvrir `http://localhost:5173`. Toutes les données sont mockées par défa
 ## 4. Problèmes connus
 
 - **Node absent/instable sur certaines machines de session** : si `node`/`npm` sont introuvables, réinstaller Node avant tout travail frontend (voir `SESSIONS.md` pour l'historique de ce point).
-- **Port 8000 occupé par un process fantôme** : si `uvicorn` refuse de démarrer sans process visible sur le port, voir la mémoire de session *Stray backend port 8000* — contournement via un proxy Vite temporaire sur un port de secours.
+- **Port 8000 occupé par un process fantôme** : si `uvicorn` refuse de démarrer sans process visible sur le port, voir la mémoire de session _Stray backend port 8000_ — contournement via un proxy Vite temporaire sur un port de secours.
 - **Warning EBADENGINE** sous Node < 21.7 : sans conséquence sur `npm run dev`/`build`, mais bloque `create-vite` si jamais besoin de re-scaffolder.
 
 ## 5. Documents liés

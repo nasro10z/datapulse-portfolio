@@ -36,14 +36,14 @@ App sur `http://localhost:5173`, API sur `http://localhost:8000/docs`. Aucune ba
 
 ## S'orienter dans le repo
 
-| Je veux... | Je vais... |
-|---|---|
-| Comprendre le produit, les personas, l'avancement du projet | [handover/project-overview.md](handover/project-overview.md) |
-| Comprendre comment frontend / backend / stockage s'articulent | [handover/architecture.md](handover/architecture.md) |
-| Installer le projet en local | [handover/setup-guide.md](handover/setup-guide.md) |
-| Consulter la liste des endpoints REST et leurs schémas | [handover/api-documentation.md](handover/api-documentation.md) |
-| Builder pour la production / basculer sur les données réelles | [handover/deployment.md](handover/deployment.md) |
-| Voir le détail du pipeline de données (bronze/silver/gold) | [docs/data-architecture.md](docs/data-architecture.md) |
+| Je veux...                                                    | Je vais...                                                     |
+| ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Comprendre le produit, les personas, l'avancement du projet   | [handover/project-overview.md](handover/project-overview.md)   |
+| Comprendre comment frontend / backend / stockage s'articulent | [handover/architecture.md](handover/architecture.md)           |
+| Installer le projet en local                                  | [handover/setup-guide.md](handover/setup-guide.md)             |
+| Consulter la liste des endpoints REST et leurs schémas        | [handover/api-documentation.md](handover/api-documentation.md) |
+| Builder pour la production / basculer sur les données réelles | [handover/deployment.md](handover/deployment.md)               |
+| Voir le détail du pipeline de données (bronze/silver/gold)    | [docs/data-architecture.md](docs/data-architecture.md)         |
 
 ```
 datapulse/
@@ -51,4 +51,3 @@ datapulse/
 ├── frontend/       # React/Vite — 5 pages + composants + design system
 ├── handover/       # documentation de passation (ce tableau)
 ```
-

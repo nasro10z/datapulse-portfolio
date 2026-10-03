@@ -12,12 +12,12 @@ coche au fur et à mesure. Les documents de référence associés :
 
 ## 0. Décisions actées
 
-| Sujet | Décision |
-|---|---|
-| **Confidentialité** | Anonymisation complète (code, UI, docs, tests, historique git) **+ recalage temporel** du gold pour que la démo ne soit ni datée de mai 2026 ni rattachable au site réel |
-| **Hébergement** | **Vercel** (front + fonction Python dans un seul projet) **+ Postgres managé** (Neon/Supabase) pour l'état applicatif, afin que les écritures persistent |
-| **Vitrine ML** | Une **page « Méthode »** dans l'application + un **README portfolio**, alimentés par [`ml-decisions.md`](ml-decisions.md) |
-| **Historique Vercel** | Un déploiement a été tenté le 15/08 puis **supprimé** ; le message d'erreur n'est plus disponible → on repart d'un déploiement neuf avec une checklist de vérification |
+| Sujet                 | Décision                                                                                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Confidentialité**   | Anonymisation complète (code, UI, docs, tests, historique git) **+ recalage temporel** du gold pour que la démo ne soit ni datée de mai 2026 ni rattachable au site réel |
+| **Hébergement**       | **Vercel** (front + fonction Python dans un seul projet) **+ Postgres managé** (Neon/Supabase) pour l'état applicatif, afin que les écritures persistent                 |
+| **Vitrine ML**        | Une **page « Méthode »** dans l'application + un **README portfolio**, alimentés par [`ml-decisions.md`](ml-decisions.md)                                                |
+| **Historique Vercel** | Un déploiement a été tenté le 15/08 puis **supprimé** ; le message d'erreur n'est plus disponible → on repart d'un déploiement neuf avec une checklist de vérification   |
 
 ### Point de départ technique
 
@@ -26,12 +26,12 @@ annulés par un `reset` sur `f64f054` le 01/09. **Ils ne sont pas perdus** : ils
 `origin/main` et leur contenu est encore dans l'index local. Ce travail est bon et
 largement réutilisable :
 
-| Acquis | Fichier |
-|---|---|
+| Acquis                                        | Fichier                                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Bundle Python sous la limite Vercel de 500 Mo | `backend/requirements.txt` (runtime Vercel), `backend/requirements-etl.txt` et `backend/requirements-dev.txt` |
-| Base servie 40 Mo → 1,1 Mo | `backend/app/etl/export_gold.py` |
-| Compatibilité disque en lecture seule | `is_read_only()` dans `backend/app/storage/analytics_db.py` |
-| Front + API sur un seul domaine (zéro CORS) | `api/index.py` + `vercel.json` |
+| Base servie 40 Mo → 1,1 Mo                    | `backend/app/etl/export_gold.py`                                                                              |
+| Compatibilité disque en lecture seule         | `is_read_only()` dans `backend/app/storage/analytics_db.py`                                                   |
+| Front + API sur un seul domaine (zéro CORS)   | `api/index.py` + `vercel.json`                                                                                |
 
 ### Trois problèmes connus à traiter
 
@@ -73,12 +73,12 @@ Les 4 commits annulés ne contenaient pas que du déploiement : ils portaient au
 **mise à jour de fond de la documentation**, perdue par le retour à `f64f054`. À récupérer
 depuis la branche au moment voulu, plutôt qu'à réécrire :
 
-| Contenu parké | Pourquoi ça compte | Phase qui le récupère |
-|---|---|---|
-| `handover/current-state.md` (217 lignes, **n'existe que sur la branche**) | Le meilleur document du repo pour un portfolio : ce qui est réel vs démo, les chiffres honnêtes, comment distinguer les deux à l'écran | 5.3 |
-| `docs/ml-data-integration.md`, `backend/app/ml/README.md` | Les versions de `f64f054` sont **périmées** (elles annoncent encore health/forecast en 501 et les étapes F/I « à venir ») | 6 |
-| `handover/{architecture,deployment,api-documentation,project-overview,setup-guide}.md` | Réécrits et complétés, pas seulement traduits | 6 |
-| Les fichiers de déploiement (`vercel.json`, `api/index.py`, `export_gold.py`, split des requirements, `is_read_only()`) | Le travail technique réutilisable | 2 et 4 |
+| Contenu parké                                                                                                           | Pourquoi ça compte                                                                                                                     | Phase qui le récupère |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `handover/current-state.md` (217 lignes, **n'existe que sur la branche**)                                               | Le meilleur document du repo pour un portfolio : ce qui est réel vs démo, les chiffres honnêtes, comment distinguer les deux à l'écran | 5.3                   |
+| `docs/ml-data-integration.md`, `backend/app/ml/README.md`                                                               | Les versions de `f64f054` sont **périmées** (elles annoncent encore health/forecast en 501 et les étapes F/I « à venir »)              | 6                     |
+| `handover/{architecture,deployment,api-documentation,project-overview,setup-guide}.md`                                  | Réécrits et complétés, pas seulement traduits                                                                                          | 6                     |
+| Les fichiers de déploiement (`vercel.json`, `api/index.py`, `export_gold.py`, split des requirements, `is_read_only()`) | Le travail technique réutilisable                                                                                                      | 2 et 4                |
 
 Toute la documentation de la branche est en **anglais** ; l'arbre restauré est en
 **français**, comme `ml-decisions.md` et ce plan. Choix de langue à trancher en Phase 6 —
@@ -94,14 +94,14 @@ La table de correspondance réelle vit dans `.anonymization-map.local.md`, **git
 publiée, elle dés-anonymiserait tout le reste du dépôt d'un seul coup d'œil. Ce document
 ne décrit donc que les valeurs d'arrivée.
 
-| Domaine | Valeur retenue |
-|---|---|
-| Opérateur | `TelcoNet` (identifiant technique), « opérateur télécom » (libellés) |
-| Site branché | `MSC-10`, identifiant frontend `msc10` |
-| Sites de démonstration | `MSC-03` / `msc03`, `BSC-07` / `bsc07` |
-| Capteur de salle | `SITE01_SALLE_SWITCH` |
-| Base source PostgreSQL | `datacenter_ops` |
-| Autres sites du fichier 2022 | « six autres sites du même réseau » |
+| Domaine                      | Valeur retenue                                                       |
+| ---------------------------- | -------------------------------------------------------------------- |
+| Opérateur                    | `TelcoNet` (identifiant technique), « opérateur télécom » (libellés) |
+| Site branché                 | `MSC-10`, identifiant frontend `msc10`                               |
+| Sites de démonstration       | `MSC-03` / `msc03`, `BSC-07` / `bsc07`                               |
+| Capteur de salle             | `SITE01_SALLE_SWITCH`                                                |
+| Base source PostgreSQL       | `datacenter_ops`                                                     |
+| Autres sites du fichier 2022 | « six autres sites du même réseau »                                  |
 
 **Conservés, car non identifiants** : `MSC 10` / `MSC10` (terme télécom générique — et
 c'est aussi la chaîne sur laquelle filtrent l'ETL et le package livré, donc rien ne casse),
@@ -131,7 +131,7 @@ Ce préfixe porte le nom réel du site. Il est donc devenu un réglage,
 - sur la machine de dev, la vraie valeur est posée dans `.env` → le golden test passe à
   100 % comme avant ;
 - dans le dépôt public, la valeur par défaut est neutre — et les tests de fidélité y sont
-  de toute façon *skippés*, puisqu'ils exigent les données brutes, qui sont privées.
+  de toute façon _skippés_, puisqu'ils exigent les données brutes, qui sont privées.
 
 Les deux filtres qui font tourner l'ETL (`message.str.contains("MSC 10")`) sont
 **inchangés**, `MSC 10` étant conservé par le lexique.
@@ -154,7 +154,7 @@ pièges. Et le module ne cite plus aucun terme interdit : il se signalait lui-m�
 #### Décision initiale sur ce fichier
 
 **Garder, anonymisé.** C'est le journal de décisions du projet (une entrée par session :
-réalisations, décisions, points en suspens) — la seule trace du *pourquoi* des arbitrages,
+réalisations, décisions, points en suspens) — la seule trace du _pourquoi_ des arbitrages,
 et la source principale de [`ml-decisions.md`](ml-decisions.md). Dans un portfolio, c'est
 une pièce rare : elle montre un raisonnement, des arbitrages assumés et des erreurs
 corrigées, pas seulement un résultat.
@@ -233,12 +233,12 @@ recalcule donc contre la borne retenue ; sans recalage, c'est un no-op (même bo
 
 ### Ce que la démo montre désormais
 
-| Vue | Avant | Après recalage |
-|---|---|---|
-| Aperçu / Santé du site | `updated_at` en mai 2026 | **heure courante** |
-| Prévision | historique et courbe figés en mai | repart de maintenant, 30 j devant |
-| Anomalies — table, histogramme, répartition | 388 épisodes datés de mai | **388 épisodes récents** |
-| Anomalies — KPI 24 h / 7 j | 0 et 0 | **0 et 1** (30 j : 77, 90 j : 143) |
+| Vue                                         | Avant                             | Après recalage                     |
+| ------------------------------------------- | --------------------------------- | ---------------------------------- |
+| Aperçu / Santé du site                      | `updated_at` en mai 2026          | **heure courante**                 |
+| Prévision                                   | historique et courbe figés en mai | repart de maintenant, 30 j devant  |
+| Anomalies — table, histogramme, répartition | 388 épisodes datés de mai         | **388 épisodes récents**           |
+| Anomalies — KPI 24 h / 7 j                  | 0 et 0                            | **0 et 1** (30 j : 77, 90 j : 143) |
 
 Le KPI 24 h reste à zéro, et c'est **exact** : la donnée source n'a réellement aucun
 épisode dans les dernières 24 h précédant le dernier score. Le panneau affiche un état
@@ -318,13 +318,9 @@ ouvre sa propre connexion.
       FastAPI, ou montage des routers sans préfixe.
 - [ ] **4.4** Variables : `APP_DB_URL` en **secret du dashboard** (jamais dans le repo),
       `ANALYTICS_DB_PATH` en chemin absolu, `DATA_SOURCE=live`.
-- [ ] **4.5** Checklist du premier déploiement :
-      - [ ] les 5 routes de lecture répondent 200 ;
-      - [ ] `updated_at` porte une date récente (le recalage fonctionne) ;
-      - [ ] une PM planifiée **survit à un redéploiement** (Postgres fonctionne) ;
-      - [ ] taille de fonction et durée de démarrage à froid relevées et notées dans
-            `handover/deployment.md`.
-- [ ] **4.6** *Si* la taille ou le délai coincent : sortir pandas du chemin de requête
+- [ ] **4.5** Checklist du premier déploiement : - [ ] les 5 routes de lecture répondent 200 ; - [ ] `updated_at` porte une date récente (le recalage fonctionne) ; - [ ] une PM planifiée **survit à un redéploiement** (Postgres fonctionne) ; - [ ] taille de fonction et durée de démarrage à froid relevées et notées dans
+      `handover/deployment.md`.
+- [ ] **4.6** _Si_ la taille ou le délai coincent : sortir pandas du chemin de requête
       (`read_health_hourly` en SQL + dictionnaires) → ~90 Mo de moins. Prévu comme repli,
       pas fait d'office.
 
@@ -347,16 +343,11 @@ précalculé, et les modèles sont volontairement exclus du bundle.
       5 tests comparent la carte publiée aux artefacts — dont un garde-fou qui échoue si
       le JSON committé devient périmé après un réentraînement.
 - [ ] **5.2** Page `/methode` (+ entrée de navigation, i18n FR/EN comme le reste de
-      l'application), alimentée par [`ml-decisions.md`](ml-decisions.md) :
-      - le schéma bronze → silver → gold chiffré (137 970 → 107 047 lignes, 1 905 segments,
-        2 569 lignes SCADA → 388 épisodes, 2 137 heures scorées, 164 points de prévision) ;
-      - trois model cards (HMM 6 états F1 0,83 · IsolationForest 300 arbres, contamination
-        3 % · XGBoost delta 6 h top 20, MAE 6,085 vs persistance 6,124) ;
-      - les décisions structurantes : détection par salle, seuils Tukey 26,75 / 28,65,
-        hystérésis, filtre « HMM + franchissement réel » (1 383 → 388), cible delta ;
-      - les preuves de fidélité (égalité < 1e-6 avec le notebook, SCADA reproduit à 100 %) ;
-      - les **limites assumées** (validé à +6 h seulement, pas de vérité terrain, recalage
-        temporel).
+      l'application), alimentée par [`ml-decisions.md`](ml-decisions.md) : - le schéma bronze → silver → gold chiffré (137 970 → 107 047 lignes, 1 905 segments,
+      2 569 lignes SCADA → 388 épisodes, 2 137 heures scorées, 164 points de prévision) ; - trois model cards (HMM 6 états F1 0,83 · IsolationForest 300 arbres, contamination
+      3 % · XGBoost delta 6 h top 20, MAE 6,085 vs persistance 6,124) ; - les décisions structurantes : détection par salle, seuils Tukey 26,75 / 28,65,
+      hystérésis, filtre « HMM + franchissement réel » (1 383 → 388), cible delta ; - les preuves de fidélité (égalité < 1e-6 avec le notebook, SCADA reproduit à 100 %) ; - les **limites assumées** (validé à +6 h seulement, pas de vérité terrain, recalage
+      temporel).
 - [ ] **5.3** README portfolio : problème métier, lien de démo, captures des pages, schéma
       d'architecture, résultats ML, « ce qui est réel vs démo », lancement local, tests.
 - [ ] **5.4** Bandeau de démo dans l'application (données recalées, écritures ouvertes au
@@ -370,7 +361,7 @@ précalculé, et les modèles sont volontairement exclus du bundle.
       Postgres, routage Vercel vérifié).
 - [ ] `SESSIONS.md` et `ROADMAP.md` complétés.
 - [ ] CI GitHub Actions : `pytest` + `vitest` + le garde-fou d'anonymisation (1.5).
-- [ ] *(optionnel)* Passe de traduction EN pour aligner `docs/ml-decisions.md` et ce plan
+- [ ] _(optionnel)_ Passe de traduction EN pour aligner `docs/ml-decisions.md` et ce plan
       sur le reste de `docs/` et `handover/`, déjà en anglais.
 
 **Total estimé : 6 à 7 jours de travail effectif.** Les phases 1, 2 et 5 sont indépendantes
@@ -380,11 +371,11 @@ des phases 3 et 4 et peuvent avancer en parallèle.
 
 ## Risques et parades
 
-| Risque | Parade |
-|---|---|
-| Le rewrite Vercel casse le routage `/api` | `vercel dev` avant tout déploiement (4.3), deux replis prêts |
-| Démarrage à froid proche de la limite (pandas + Postgres) | Mesure en 4.5, repli pandas en 4.6 |
-| Le recalage temporel rend un graphe incohérent (prévision démarrant dans le passé) | Décalage **unique** pour toutes les colonnes + test d'ordre chronologique (2.6) |
-| `filter-repo` réécrit tous les SHA | Opéré sur un **clone**, vers un **nouveau** repo ; l'original privé reste intact |
-| Base de démo polluée par les visiteurs | Seed idempotent + remise à zéro optionnelle (3.6) |
-| Le gold versionné devient périmé | Régénérer `export_gold` **et recommitter** après chaque exécution du pipeline (déjà documenté) |
+| Risque                                                                             | Parade                                                                                         |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Le rewrite Vercel casse le routage `/api`                                          | `vercel dev` avant tout déploiement (4.3), deux replis prêts                                   |
+| Démarrage à froid proche de la limite (pandas + Postgres)                          | Mesure en 4.5, repli pandas en 4.6                                                             |
+| Le recalage temporel rend un graphe incohérent (prévision démarrant dans le passé) | Décalage **unique** pour toutes les colonnes + test d'ordre chronologique (2.6)                |
+| `filter-repo` réécrit tous les SHA                                                 | Opéré sur un **clone**, vers un **nouveau** repo ; l'original privé reste intact               |
+| Base de démo polluée par les visiteurs                                             | Seed idempotent + remise à zéro optionnelle (3.6)                                              |
+| Le gold versionné devient périmé                                                   | Régénérer `export_gold` **et recommitter** après chaque exécution du pipeline (déjà documenté) |

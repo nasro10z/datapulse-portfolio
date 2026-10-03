@@ -27,9 +27,11 @@ cd backend
 ```
 
 Pour plusieurs workers (recommandé en prod, un seul process ASGI ne parallélise pas le CPU) :
+
 ```bash
 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
+
 ⚠️ Avec plusieurs workers, les deux bases SQLite (état applicatif + analytique) sont partagées par fichier — SQLite gère le multi-process en lecture/écriture concurrente mais avec un débit d'écriture limité (verrou fichier). Suffisant pour l'usage prévu (outil interne, faible concurrence d'écriture) ; à revoir si le volume d'écritures augmente (migrer vers PostgreSQL pour l'état applicatif, par exemple).
 
 ### Frontend
@@ -43,6 +45,7 @@ npm run build      # → frontend/dist/, statique
 `dist/` est un bundle statique (HTML/CSS/JS) — servable par n'importe quel serveur de fichiers statiques (nginx, Caddy, `serve`, un CDN...). Il n'y a **pas** de proxy Vite en production : le frontend buildé doit connaître l'URL réelle du backend.
 
 **Point d'attention** : `frontend/src/api/client.js` fait des `fetch('/api/...')` **relatifs** (voir `setup-guide.md` §2). En dev, le proxy Vite résout ça vers `localhost:8000`. En production, deux options :
+
 1. Servir le frontend et le backend **sous le même domaine** (reverse proxy qui route `/api/*` vers uvicorn et le reste vers `dist/`) — aucun changement de code requis.
 2. Servir le frontend sur un domaine séparé du backend — il faudra alors adapter `client.js` pour préfixer les appels avec l'URL absolue du backend (actuellement non paramétré par variable d'environnement, à ajouter si ce cas se présente).
 
@@ -66,6 +69,7 @@ C'est la vraie étape de « mise en production » de ce projet : passer des donn
    ```bash
    python -m app.etl.run --train
    ```
+
    - `--train` réentraîne le modèle de prévision (XGBoost sur le delta 6h) ; à omettre pour ne recalculer que bronze/silver/gold avec les modèles déjà entraînés (`python -m app.etl.run`).
    - `--skip-ingest` repart du bronze déjà chargé (utile pour ne rejouer que transform/detect/score/forecast).
    - Chaque étape est **idempotente** : rejouer le pipeline remplace entièrement sa cible, ne duplique rien — sûr à relancer.
@@ -87,13 +91,13 @@ C'est la vraie étape de « mise en production » de ce projet : passer des donn
 
 Voir [`setup-guide.md`](setup-guide.md) pour le détail de chaque variable. En résumé pour un déploiement :
 
-| Variable | Obligatoire | Notes |
-|---|---|---|
-| `DATA_SOURCE` | non (défaut `mock`) | `live` une fois le pipeline réel branché (§3) |
-| `ANOMALIES_SOURCE` / `HEALTH_SOURCE` | non | dérogation par domaine |
-| `DB_HOST/PORT/NAME/USER/PASSWORD` | non actuellement | PostgreSQL source non joignable — préparé pour un futur accès direct, inutilisé aujourd'hui |
-| `APP_DB_PATH` | non (défaut `backend/data/datapulse.db`) | à monter sur un volume persistant si le backend tourne dans un environnement éphémère (conteneur sans volume = état PM/acquittements perdu au redémarrage) |
-| `analytics_db_path` (dans `config.py`, pas de var env dédiée à ce jour) | non | idem — à surveiller si l'environnement d'exécution est éphémère |
+| Variable                                                                | Obligatoire                              | Notes                                                                                                                                                      |
+| ----------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_SOURCE`                                                           | non (défaut `mock`)                      | `live` une fois le pipeline réel branché (§3)                                                                                                              |
+| `ANOMALIES_SOURCE` / `HEALTH_SOURCE`                                    | non                                      | dérogation par domaine                                                                                                                                     |
+| `DB_HOST/PORT/NAME/USER/PASSWORD`                                       | non actuellement                         | PostgreSQL source non joignable — préparé pour un futur accès direct, inutilisé aujourd'hui                                                                |
+| `APP_DB_PATH`                                                           | non (défaut `backend/data/datapulse.db`) | à monter sur un volume persistant si le backend tourne dans un environnement éphémère (conteneur sans volume = état PM/acquittements perdu au redémarrage) |
+| `analytics_db_path` (dans `config.py`, pas de var env dédiée à ce jour) | non                                      | idem — à surveiller si l'environnement d'exécution est éphémère                                                                                            |
 
 **Piège principal en cas d'hébergement futur** : si le backend tourne dans un conteneur ou une VM sans stockage persistant, `backend/data/*.db` disparaît à chaque redémarrage — toute PM planifiée, tout acquittement, et le gold recalculé par l'ETL seraient perdus. Monter `backend/data/` sur un volume persistant est **indispensable** avant tout déploiement au-delà d'une démo locale.
 
@@ -102,6 +106,7 @@ Voir [`setup-guide.md`](setup-guide.md) pour le détail de chaque variable. En r
 ## 5. Avant de déployer réellement quelque part
 
 Ce projet n'a jamais été déployé hors poste local — avant de pousser vers un hébergeur, une VM, ou un service cloud, à clarifier avec l'utilisateur :
+
 - la cible (interne only vs accessible publiquement — le produit manipule des données d'infrastructure télécom, la sensibilité doit être évaluée),
 - si une authentification doit être ajoutée (aucune n'existe aujourd'hui, voir `api-documentation.md` §Conventions),
 - le stockage persistant pour les deux bases SQLite,
