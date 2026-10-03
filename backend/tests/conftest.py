@@ -15,6 +15,8 @@ os.environ["APP_DB_PATH"] = str(_TMP_DIR / "app.db")
 # écrire dans cette base partagée — la fixture `reset_user_actions` ci-dessous y
 # supprimerait les acquittements après chaque test.
 os.environ["APP_DB_URL"] = ""
+# Analytics remains isolated on a temporary SQLite database during tests.
+os.environ["ANALYTICS_DB_URL"] = ""
 # Base analytique jetable : les tests ne touchent pas la vraie base gold peuplée
 # (source « live » = lecture gold ; ici gold vide → réponses vides mais 200).
 os.environ["ANALYTICS_DB_PATH"] = str(_TMP_DIR / "analytics.db")
@@ -29,8 +31,13 @@ from sqlalchemy import delete  # noqa: E402
 
 from app.db.app_db import get_app_engine, get_sessionmaker, init_db  # noqa: E402
 from app.db.tables import AnomalyAction, ReminderAction  # noqa: E402
+from app.config import settings  # noqa: E402
 from app.main import app  # noqa: E402
 from app.storage.analytics_db import get_analytics_engine, init_analytics_db  # noqa: E402
+
+# Ignore per-domain values from a developer's .env in the shared test app.
+settings.anomalies_source = None
+settings.health_source = None
 
 # Tables créées dès le chargement, sans attendre la fixture `client` : la fixture
 # autouse ci-dessous écrit dans la base applicative après **chaque** test, y compris

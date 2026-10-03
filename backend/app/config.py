@@ -71,9 +71,11 @@ class Settings(BaseSettings):
     # les variables du dashboard d'hébergement. Jamais dans le dépôt.
     app_db_url: str | None = None
 
-    # Stockage analytique (écriture par l'ETL uniquement) — SQLite local, distinct
-    # de l'état applicatif : couches bronze/silver/gold du pipeline de données.
-    # Voir docs/data-architecture.md. Un seul écrivain (ETL) par fichier.
+    # Stockage analytique PostgreSQL pour la lecture du gold en déploiement.
+    # Vide : SQLite local reste la cible de l'ETL et des tests.
+    analytics_db_url: str | None = None
+
+    # Chemin SQLite local du stockage analytique ; ignoré si ANALYTICS_DB_URL est défini.
     analytics_db_path: Path = BACKEND_ROOT / "data" / "datapulse_analytics.db"
 
     cors_origins: list[str] = [

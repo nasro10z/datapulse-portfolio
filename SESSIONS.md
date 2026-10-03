@@ -4,6 +4,23 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 ---
 
+## Session 13 — 2026-10-03 — Séparation des dépendances backend
+
+**Demande** : retirer les dépendances ETL, modèles et tests du bundle Python Vercel sans casser le développement local.
+
+### Réalisations
+
+- `backend/requirements.txt` limité aux dépendances runtime de l'API : FastAPI, Pydantic, SQLAlchemy, psycopg2 et pandas.
+- Ajout de `requirements-etl.txt` (NumPy, scikit-learn épinglé, hmmlearn, XGBoost, joblib, openpyxl) et `requirements-dev.txt` (ETL + Uvicorn + pytest/httpx).
+- README et guides mis à jour : installation locale complète via `requirements-dev.txt`, Vercel via `requirements.txt`, serveur ASGI auto-hébergé avec Uvicorn.
+- Validation `pip install --dry-run` réussie pour les fichiers runtime et dev.
+
+### En suspens
+
+- Relancer le build Vercel et vérifier que le bundle Python passe sous 500 Mo. Le build précédent (avant la séparation) indiquait 740,50 Mo.
+
+---
+
 ## Session 12 — 2026-10-02 — Configuration Vercel Services
 
 **Demande** : préparer un déploiement unique du frontend Vite et du backend FastAPI avec routage `/api/*`.
@@ -12,12 +29,15 @@ Retrace ce qui a été fait à chaque session de travail avec Claude Code. Une e
 
 - Ajout de `vercel.json` à la racine : services `fastapi` (`backend/`, entrée `app.main:app`) et `vite` (`frontend/`), routage API vers FastAPI, reste vers Vite et fallback SPA.
 - Vérifié : configuration JSON valide, build de production Vite réussi. Les Services Vercel sont actuellement en bêta.
+- Le stockage analytique accepte maintenant `ANALYTICS_DB_URL` (PostgreSQL) ; SQLite reste le défaut de l'ETL et des tests. `app.etl.import_gold` importe de façon transactionnelle les cinq tables gold depuis le snapshot versionné.
+- Import effectué dans Neon : 388 épisodes, 2 137 heures de scores, 164 points de prévision, 4 scores et 1 métadonnée. Les 4 PM déjà présentes et les tables d'actions sont conservées. Smoke test FastAPI live : santé, anomalies et forecast répondent 200 depuis Neon.
+- Tests : storage 9/9 ; santé + seam 17/17 ; suite backend 111 réussis, 2 ignorés, 1 échec de fidélité SCADA (1 024 paires de messages différentes avec les données locales). Diagnostics Pylance propres sur les fichiers Python modifiés.
 
 ### À configurer au déploiement
 
 - Racine du projet Vercel = racine du dépôt.
-- Définir `ANALYTICS_DB_PATH` vers `data/datapulse_gold.db` (dans le service backend) et `APP_DB_PATH=/tmp/datapulse.db` pour une démo sans persistance, ou `APP_DB_URL` vers PostgreSQL managé pour conserver l'état applicatif. Configurer `PM_READ_ONLY=true` pour une démo publique en lecture seule.
-- Vérifier le chemin effectif de la base gold avec `vercel dev` ou un déploiement preview.
+- Définir dans le service backend `ANALYTICS_DB_URL` vers la même base Neon, `DATA_SOURCE=live` et `PM_READ_ONLY=true`. Définir aussi `APP_DB_URL` si l'état app doit utiliser cette base (la démo actuelle y conserve déjà ses 4 PM).
+- Relancer le build Vercel après la séparation de dépendances de la session 13 et confirmer le bundle sous 500 Mo.
 
 ---
 

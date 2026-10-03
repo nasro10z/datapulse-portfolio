@@ -28,7 +28,7 @@ largement réutilisable :
 
 | Acquis | Fichier |
 |---|---|
-| Bundle 633 Mo → 148 Mo | `requirements.txt` (racine) / `requirements-etl.txt` / `requirements-dev.txt` + `.vercelignore` |
+| Bundle Python sous la limite Vercel de 500 Mo | `backend/requirements.txt` (runtime Vercel), `backend/requirements-etl.txt` et `backend/requirements-dev.txt` |
 | Base servie 40 Mo → 1,1 Mo | `backend/app/etl/export_gold.py` |
 | Compatibilité disque en lecture seule | `is_read_only()` dans `backend/app/storage/analytics_db.py` |
 | Front + API sur un seul domaine (zéro CORS) | `api/index.py` + `vercel.json` |

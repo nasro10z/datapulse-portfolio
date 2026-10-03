@@ -6,7 +6,7 @@
 
 | Outil | Version | Remarque |
 |---|---|---|
-| Python | 3.13 | requis par les artefacts modèle `.joblib` (`scikit-learn==1.9.0`) — voir `backend/requirements.txt` |
+| Python | 3.13 | environnement ETL/modèles (`requirements-etl.txt`, `scikit-learn==1.9.0`) |
 | Node.js | 22 LTS recommandé | Vite 6 émet un warning EBADENGINE sous Node < 21.7 (fonctionne quand même) |
 | Git | — | |
 
@@ -23,12 +23,12 @@ python -m venv .venv
 
 Windows (PowerShell) :
 ```powershell
-.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\pip install -r requirements-dev.txt
 ```
 
 macOS/Linux :
 ```bash
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 ```
 
 ### Configuration — `.env`

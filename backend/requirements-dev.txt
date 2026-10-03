@@ -1,0 +1,4 @@
+-r requirements-etl.txt
+uvicorn[standard]
+pytest
+httpx

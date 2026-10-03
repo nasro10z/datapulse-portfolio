@@ -4,9 +4,9 @@ Plan de stockage et d'intégration des données, historiques **et** temps réel.
 Objectif de conception : **ne jamais mélanger la donnée (stockage) avec le
 pipeline (ETL) ni avec les maths (ML)**, pour que chaque brique évolue seule.
 
-Sert de source de vérité pour la Phase 8 (branchement du pipeline réel). Décisions
-prises en session : stockage analytique **SQLite**, API qui **lit du gold
-précalculé**, état applicatif **SQLite** (inchangé).
+Sert de source de vérité pour la Phase 8 (branchement du pipeline réel). L'ETL
+utilise SQLite en local ; en déploiement, l'API peut lire le gold exporté depuis
+PostgreSQL. L'état applicatif reste une base distincte.
 
 ---
 
@@ -86,7 +86,7 @@ dans gold et renvoie le modèle, sans transformation.
 
 ---
 
-## 3. Stockage physique — trois fichiers SQLite, un écrivain chacun
+## 3. Stockage physique — ETL local, gold PostgreSQL en déploiement
 
 SQLite est adapté à l'échelle du projet (≈107k lignes historiques, ~720 points/jour
 en temps réel, **un seul écrivain par fichier**). La séparation des fichiers est
@@ -95,8 +95,9 @@ ce qui empêche le mélange data ↔ ETL ↔ app.
 | Fichier | Contenu | Écrit par | Lu par | Statut |
 |---|---|---|---|---|
 | **exports CSV** des tables (temp_humidity, scada_logs, ups_events) | données data center | fournis (PG `datacenter_ops` non joignable) | `etl/ingest` | fournis |
-| `datapulse_analytics.db` | bronze + silver + gold | **l'ETL uniquement** | l'API (gold), l'ETL (bronze/silver) | **à créer** |
-| `datapulse.db` | état app (PM, actions user) | **l'API uniquement** | l'API | existe |
+| `datapulse_analytics.db` | bronze + silver + gold | **l'ETL uniquement** | l'API locale (gold), l'ETL (bronze/silver) | local |
+| PostgreSQL (`ANALYTICS_DB_URL`) | tables gold exportées | import du snapshot | API déployée (lecture) | optionnel |
+| `datapulse.db` ou PostgreSQL (`APP_DB_URL`) | état app (PM, actions user) | **l'API uniquement** | l'API | existe |
 
 > Migration future sans douleur : si le temps réel monte en charge, on remplace
 > `datapulse_analytics.db` par une base PostgreSQL **sans toucher** à `etl/` ni à
@@ -107,11 +108,19 @@ Configuration (`config.py` / `.env`) :
 
 ```
 ANALYTICS_DB_PATH=backend/data/datapulse_analytics.db   # défaut
+ANALYTICS_DB_URL=                                       # vide → SQLite ; URL PG → gold déployé
 APP_DB_PATH=backend/data/datapulse.db                   # existant
+APP_DB_URL=                                             # optionnel, PostgreSQL pour l'état app
 DATA_SOURCE=mock                                        # global (mock|live)
 ANOMALIES_SOURCE=                                       # dérogation par domaine
 HEALTH_SOURCE=                                          #   vide → suit DATA_SOURCE
 ```
+
+L'ETL continue d'écrire le pipeline complet dans SQLite. Pour initialiser le
+PostgreSQL de déploiement, `python -m app.etl.import_gold` copie uniquement les
+cinq tables gold du fichier `data/datapulse_gold.db`. L'import est transactionnel,
+refuse par défaut de remplacer des tables gold non vides et ne modifie pas les
+tables d'état applicatif.
 
 ---
 

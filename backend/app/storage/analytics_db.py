@@ -1,24 +1,58 @@
-"""Base analytique SQLite — couches bronze/silver/gold du pipeline de données.
+"""Stockage analytique : SQLite local ou PostgreSQL pour le gold déployé.
 
 Distincte de :
   - `db/engine.py` (base SOURCE PostgreSQL, non joignable — source réelle = CSV) ;
   - `db/app_db.py` (état applicatif : plannings de PM, actions utilisateur).
 
-Séparer physiquement ce fichier garantit un **écrivain unique par base** :
-l'ETL écrit ici (bronze/silver/gold), l'API n'y fait que des lectures (gold).
-Comme ailleurs, l'URL est construite avec `URL.create()`, jamais par
-concaténation de chaînes.
+L'ETL écrit bronze/silver/gold dans SQLite. L'API peut lire les cinq tables gold
+depuis PostgreSQL en déploiement. Comme ailleurs, les URL sont analysées par
+SQLAlchemy, jamais assemblées par concaténation de chaînes.
 """
 import os
 from collections.abc import Iterator
 from functools import lru_cache
 
-from sqlalchemy import URL, create_engine, event
+from sqlalchemy import URL, create_engine, event, make_url
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 from app.storage.schema import Base
+from app.storage.schema.gold import (
+    AnomalyEpisodeRow,
+    ForecastPointRow,
+    GoldMetaRow,
+    HealthScoreHourlyRow,
+    HealthScoreRow,
+)
+
+_POSTGRES_ALIASES = {"postgres", "postgresql"}
+_GOLD_TABLES = [
+    AnomalyEpisodeRow.__table__,
+    ForecastPointRow.__table__,
+    GoldMetaRow.__table__,
+    HealthScoreHourlyRow.__table__,
+    HealthScoreRow.__table__,
+]
+
+
+def resolve_analytics_db_url() -> URL:
+    """Resolve the optional PostgreSQL URL, otherwise use local SQLite."""
+    raw = (settings.analytics_db_url or "").strip()
+    if not raw:
+        return URL.create(drivername="sqlite", database=str(settings.analytics_db_path))
+
+    url = make_url(raw)
+    if url.drivername in _POSTGRES_ALIASES:
+        url = url.set(drivername="postgresql+psycopg2")
+    if not url.drivername.startswith("postgresql"):
+        raise ValueError("ANALYTICS_DB_URL must use PostgreSQL")
+    return url
+
+
+def is_analytics_postgres() -> bool:
+    return resolve_analytics_db_url().drivername.startswith("postgresql")
 
 
 def is_read_only() -> bool:
@@ -28,12 +62,24 @@ def is_read_only() -> bool:
     un système de fichiers non inscriptible. SQLite doit alors être traité
     différemment — voir `get_analytics_engine`.
     """
+    if is_analytics_postgres():
+        return False
+
     path = settings.analytics_db_path
     return path.exists() and not os.access(path, os.W_OK)
 
 
 @lru_cache(maxsize=1)
 def get_analytics_engine() -> Engine:
+    url = resolve_analytics_db_url()
+    if url.drivername.startswith("postgresql"):
+        return create_engine(
+            url,
+            poolclass=NullPool,
+            pool_pre_ping=True,
+            connect_args={"connect_timeout": 10},
+        )
+
     path = settings.analytics_db_path
     read_only = is_read_only()
 
@@ -78,6 +124,10 @@ def init_analytics_db() -> None:
     Sans effet sur une base en lecture seule : elle arrive déjà peuplée par l'ETL,
     et tenter d'y écrire ferait échouer le démarrage de l'API.
     """
+    if is_analytics_postgres():
+        Base.metadata.create_all(get_analytics_engine(), tables=_GOLD_TABLES)
+        return
+
     if is_read_only():
         return
     Base.metadata.create_all(get_analytics_engine())

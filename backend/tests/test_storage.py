@@ -36,6 +36,45 @@ def test_all_layer_tables_created(tmp_path):
     assert set(inspect(engine).get_table_names()) >= tables
 
 
+def test_analytics_defaults_to_local_sqlite(monkeypatch, tmp_path):
+    from app.config import settings
+    from app.storage import analytics_db
+
+    monkeypatch.setattr(settings, "analytics_db_url", None)
+    monkeypatch.setattr(settings, "analytics_db_path", tmp_path / "analytics.db")
+    analytics_db.get_analytics_engine.cache_clear()
+    try:
+        engine = analytics_db.get_analytics_engine()
+        assert engine.dialect.name == "sqlite"
+        assert engine.url.database == str(tmp_path / "analytics.db")
+    finally:
+        analytics_db.get_analytics_engine().dispose()
+        analytics_db.get_analytics_engine.cache_clear()
+        analytics_db.get_analytics_sessionmaker.cache_clear()
+
+
+@pytest.mark.parametrize("scheme", ["postgresql", "postgres"])
+def test_analytics_postgres_url_uses_serverless_pool(monkeypatch, scheme):
+    from app.config import settings
+    from app.storage import analytics_db
+
+    monkeypatch.setattr(
+        settings,
+        "analytics_db_url",
+        f"{scheme}://user:secret@db.example.com/datapulse?sslmode=require",
+    )
+    analytics_db.get_analytics_engine.cache_clear()
+    try:
+        url = analytics_db.resolve_analytics_db_url()
+        assert url.drivername == "postgresql+psycopg2"
+        assert url.host == "db.example.com"
+        assert url.query.get("sslmode") == "require"
+        assert analytics_db.get_analytics_engine().pool.__class__.__name__ == "NullPool"
+    finally:
+        analytics_db.get_analytics_engine.cache_clear()
+        analytics_db.get_analytics_sessionmaker.cache_clear()
+
+
 def test_versioned_gold_export_is_not_in_wal_mode():
     """L'export gold versionné doit rester en journal `DELETE`.
 
@@ -95,6 +134,7 @@ def test_read_only_analytics_db_is_served_without_writing_to_it(tmp_path, monkey
     os.chmod(path, stat.S_IREAD)
 
     monkeypatch.setattr(settings, "analytics_db_path", path)
+    monkeypatch.setattr(settings, "analytics_db_url", None)
     analytics_db.get_analytics_engine.cache_clear()
     analytics_db.get_analytics_sessionmaker.cache_clear()
     try:

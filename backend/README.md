@@ -21,7 +21,7 @@ vide — supprimer `data/datapulse.db` remet l'état à zéro.
 ```powershell
 cd backend
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\pip install -r requirements-dev.txt
 copy .env.example .env   # puis remplir DB_USER / DB_PASSWORD (non requis en Phase 1)
 ```
 
@@ -38,3 +38,26 @@ Swagger : http://localhost:8000/docs
 ```powershell
 .venv\Scripts\python -m pytest tests/
 ```
+
+`requirements.txt` contains only FastAPI runtime dependencies and is the file Vercel
+installs. ETL/model dependencies live in `requirements-etl.txt`; local development
+and tests should use `requirements-dev.txt`.
+
+## Gold analytique sur PostgreSQL
+
+L'ETL et les tests utilisent SQLite par défaut. Pour que l'API lise le gold sur
+Neon, définir `ANALYTICS_DB_URL` avec l'URL PostgreSQL dans `backend/.env` ou
+dans les variables d'environnement du service. Cette URL peut viser la même
+base que `APP_DB_URL` ; les tables analytiques sont séparées des tables d'état
+applicatif.
+
+L'export gold suivi dans `data/datapulse_gold.db` contient uniquement les cinq
+tables lues par l'API. Après avoir défini `ANALYTICS_DB_URL`, l'importer avec :
+
+```powershell
+.venv\Scripts\python -m app.etl.import_gold
+```
+
+L'import refuse de remplacer des tables gold déjà remplies. Pour republier
+l'export, ajouter `--replace-existing`. Les autres tables PostgreSQL ne sont
+pas modifiées.

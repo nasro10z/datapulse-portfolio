@@ -26,7 +26,7 @@ def test_domain_override_falls_back_to_the_global_source():
 def test_domain_override_wins_over_the_global_source():
     """Cas démo : santé sur le pipeline réel, anomalies en mock — les épisodes
     réels s'arrêtant en mai 2026, les vues à fenêtre récente n'ont rien à montrer."""
-    mixed = Settings(data_source="live", anomalies_source="mock")
+    mixed = Settings(data_source="live", anomalies_source="mock", health_source=None)
     assert mixed.resolved_anomalies_source == "mock"
     assert mixed.resolved_health_source == "live"
 

@@ -22,7 +22,7 @@ Le backend n'a pas de build à proprement parler (Python interprété), mais un 
 
 ```bash
 cd backend
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt "uvicorn[standard]"
 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
